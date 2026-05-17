@@ -30,9 +30,9 @@ O sistema proposto consiste em uma plataforma de comunicação interna projetada
 *   Gestores de TI e Administradores institucionais.
 
 ### Tecnologias Previstas
-*   **Frontend:** React (Interface web responsiva).
-*   **Backend:** PHP (PDO) ou Python para a lógica do servidor.
-*   **Banco de Dados:** MySQL ou SQLite para armazenamento de chamados e logs.
+*   **Frontend:** JavaScript.
+*   **Backend:** Python.
+*   **Banco de Dados:** MySQL.
 *   **Ambiente:** Ambientes baseados em Linux para desenvolvimento e hospedagem.
 
 ### Lista de Integrantes
