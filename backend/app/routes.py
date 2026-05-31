@@ -14,20 +14,6 @@ class SetorSchema(BaseModel):
     nome: str
     sigla: str
 
-@router.post("/auth/login")
-def login(dados: LoginSchema, db: Session = Depends(get_db)):
-    usuario, mensagem = autenticar_usuario(db, dados.email, dados.senha)
-    if not usuario:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=mensagem)
-    
-    return {
-        "status": "success",
-        "usuario": {
-            "nome": usuario.nome,
-            "email": usuario.email,
-            "perfil": usuario.perfil
-        }
-    }
 
 @router.post("/setores")
 def cadastrar_setor(setor: SetorSchema, db: Session = Depends(get_db)):
