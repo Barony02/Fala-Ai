@@ -1,0 +1,42 @@
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f4f4;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    height: 100vh;
+}
+
+.login-container {
+    background: white;
+    padding: 30px;
+
+    border-radius: 8px;
+
+    display: flex;
+    flex-direction: column;
+
+    width: 300px;
+}
+
+h2 {
+    text-align: center;
+}
+
+input {
+    margin-bottom: 10px;
+    padding: 10px;
+}
+
+button {
+    padding: 10px;
+    cursor: pointer;
+}
+
+#mensagem {
+    text-align: center;
+    margin-top: 15px;
+    font-weight: bold;
+}
