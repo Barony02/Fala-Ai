@@ -18,7 +18,12 @@ class UsuarioCadastroSchema(BaseModel):
     nome: str
     email: EmailStr
     senha: str
-
+    
+class TokenSchema(BaseModel):
+    access_token: str
+    token_type: str
+    usuario_id: int
+    perfil: str
 
 @router.post("/setores")
 def cadastrar_setor(setor: SetorSchema, db: Session = Depends(get_db)):
@@ -35,12 +40,27 @@ def listar_setores(db: Session = Depends(get_db)):
 @router.post("/login")
 def login(login: LoginSchema, db: Session = Depends(get_db)):
     from app.auth import autenticar
+    from app.jwt_config import criar_access_token
+    from datetime import timedelta
+    
     usuario = autenticar(db, login)
 
     if usuario is None:
         raise HTTPException(status_code=401, detail="Credenciais inválidas")
 
-    return {"mensagem": "Login realizado"}
+    # Cria o token com usuario_id e perfil
+    access_token = criar_access_token(
+        data={"sub": usuario.id, "perfil": usuario.perfil},
+        expires_delta=timedelta(minutes=30)
+    )
+    
+    return {
+        "mensagem": "Login realizado com sucesso",
+        "access_token": access_token,
+        "token_type": "bearer",
+        "usuario_id": usuario.id,
+        "perfil": usuario.perfil
+    }
 
 @router.post("/cadastrarUsuarios")
 def cadastrar_usuario(usuarios: UsuarioCadastroSchema, db: Session = Depends(get_db)):
