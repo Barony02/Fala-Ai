@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
-from app.database import get_db
-from app.models import Setor
+from app.config.database import get_db
+from app.models.models import Setor
 
 router = APIRouter()
 
@@ -34,7 +34,7 @@ def listar_setores(db: Session = Depends(get_db)):
 
 @router.post("/login")
 def login(login: LoginSchema, db: Session = Depends(get_db)):
-    from app.auth import autenticar
+    from app.controllers.auth import autenticar
     usuario = autenticar(db, login)
 
     if usuario is None:

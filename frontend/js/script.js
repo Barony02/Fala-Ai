@@ -30,7 +30,7 @@ form.addEventListener("submit", async (event) => {
             
             // ADICIONADO: Redireciona para o painel após o sucesso
             setTimeout(() => {
-                window.location.href = "dashboard.html";
+                window.location.href = "app/dashboard.html";
             }, 1000);
         } else {
             mensagem.textContent =

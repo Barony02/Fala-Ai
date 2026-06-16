@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.database import engine, Base
-from app.routes import router
+from app.config.database import engine, Base
+from app.routes.routes import router
 
 # Cria as tabelas do banco de dados automaticamente se não existirem
 Base.metadata.create_all(bind=engine)

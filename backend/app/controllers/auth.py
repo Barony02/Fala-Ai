@@ -1,5 +1,5 @@
-from app.routes import LoginSchema
-from app.models import Usuario
+from app.routes.routes import LoginSchema
+from app.models.models import Usuario
 import bcrypt
 
 def verificarSenha(senha: str, senha_hashed: str) -> bool:

@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Enum, ForeignKey, Boolean, DateTime
 from sqlalchemy.orm import relationship
-from app.database import Base
+from app.config.database import Base
 
 class Setor(Base):
     __tablename__ = "setores"
