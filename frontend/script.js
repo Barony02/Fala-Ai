@@ -27,6 +27,11 @@ form.addEventListener("submit", async (event) => {
         if (response.ok) {
             mensagem.textContent = "Login realizado com sucesso";
             mensagem.style.color = "green";
+            
+            // ADICIONADO: Redireciona para o painel após o sucesso
+            setTimeout(() => {
+                window.location.href = "dashboard.html";
+            }, 1000);
         } else {
             mensagem.textContent =
                 data.detail || "Falha no login";
