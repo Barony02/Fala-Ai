@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
-from app.database import get_db
-from app.models import Setor
+from app.config.database import get_db
+from app.models.models import Setor
 from app.security import get_token, verificar_token
 
 router = APIRouter()
@@ -51,7 +51,7 @@ def listar_setores(db: Session = Depends(get_db), auth: dict = Depends(verificar
 
 @router.post("/login")
 def login(login: LoginSchema, db: Session = Depends(get_db)):
-    from app.auth import autenticar
+    from app.controllers.auth import autenticar
     from app.jwt_config import criar_access_token
     from datetime import timedelta
     
