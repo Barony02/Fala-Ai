@@ -29,7 +29,9 @@ class Chamado(Base):
     titulo = Column(String(200), nullable=False)
     descricao = Column(String(1000), nullable=False)
     setor_solicitante_id = Column(Integer, ForeignKey('setores.id'), nullable=False)
+    usuario_solicitante_id = Column(Integer, ForeignKey('usuarios.id'), nullable=False)
     setor_responsavel_id = Column(Integer, ForeignKey('setores.id'), nullable=False)
+    usuario_responsavel_id = Column(Integer, ForeignKey('usuarios.id'), nullable=True)
     status = Column(Enum('Aberto', 'Em Progresso', 'Fechado'), default='Aberto')
     prioridade = Column(Enum('Baixa', 'Média', 'Alta'), default='Média')
     usuario_id = Column(Integer, ForeignKey('usuarios.id'), nullable=False)
@@ -54,19 +56,3 @@ class Anexo(Base):
     
     # Relacionamento com Chamado
     chamado = relationship("Chamado", back_populates="anexos")
-
-class Chamado(Base):
-    __tablename__ = "chamados"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    titulo = Column(String(200), nullable=False)
-    descricao = Column(String(1000), nullable=False)
-    setor_solicitante_id = Column(Integer, ForeignKey('setores.id'), nullable=False)
-    usuario_solicitante_id = Column(Integer, ForeignKey('usuarios.id'), nullable=False)
-    setor_responsavel_id = Column(Integer, ForeignKey('setores.id'), nullable=False)
-    usuario_responsavel_id = Column(Integer, ForeignKey('usuarios.id'), nullable=True)
-    status = Column(Enum('Aberto', 'Em Progresso', 'Fechado'), default='Aberto')
-    prioridade = Column(Enum('Baixa', 'Média', 'Alta'), default='Média')
-    usuario_id = Column(Integer, ForeignKey('usuarios.id'), nullable=False)
-    data_criacao = Column(DateTime, nullable=False)
-    data_atualizacao = Column(DateTime, nullable=False)

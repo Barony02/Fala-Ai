@@ -1,30 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from app.config.database import get_db
 from app.models.models import Setor
 from app.security import get_token, verificar_token
+from app.controllers.auth import get_current_user
+from app.controllers.request import abrirChamado
+from app.schemas.schemas import LoginSchema, SetorSchema, PedidoSchema, UsuarioCadastroSchema, TokenSchema
 
 router = APIRouter()
 
-class LoginSchema(BaseModel):
-    email: EmailStr
-    senha: str
-
-class SetorSchema(BaseModel):
-    nome: str
-    sigla: str
-
-class UsuarioCadastroSchema(BaseModel):
-    nome: str
-    email: EmailStr
-    senha: str
-    
-class TokenSchema(BaseModel):
-    access_token: str
-    token_type: str
-    usuario_id: int
-    perfil: str
+@router.get("/teste-auth")
+def teste_auth(authorization: str = Header(None)):
+    return {"authorization": authorization}
 
 def verificar_perfil_gestor(token: str = Depends(get_token)):
     """Verifica se o usuário tem perfil Gestor"""
@@ -84,3 +72,7 @@ def cadastrar_usuario(usuarios: UsuarioCadastroSchema, db: Session = Depends(get
     db.commit()
     db.refresh(usuario)
     return {"mensagem": "Usuário cadastrado com sucesso", "id": usuario.id}
+
+@router.post("/realizarChamado")
+def criar_chamado(pedido: PedidoSchema, usuario = Depends(get_current_user), db: Session = Depends(get_db)):
+    return abrirChamado(usuario, pedido, db)
