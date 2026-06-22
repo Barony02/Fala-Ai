@@ -63,8 +63,8 @@ def login(login: LoginSchema, db: Session = Depends(get_db)):
     }
 
 @router.post("/cadastrarUsuarios")
-def cadastrar_usuario(usuarios: UsuarioCadastroSchema, db: Session = Depends(get_db), auth: dict = Depends(verificar_perfil_gestor)):
-    from app.models import Usuario
+def cadastrar_usuario(usuarios: UsuarioCadastroSchema, db: Session = Depends(get_db)):
+    from app.models.models import Usuario
     from bcrypt import hashpw, gensalt
     senha_hashed = hashpw(usuarios.senha.encode('utf-8'), gensalt()).decode('utf-8')
     usuario = Usuario(nome=usuarios.nome, email=usuarios.email, senha_hash=senha_hashed)

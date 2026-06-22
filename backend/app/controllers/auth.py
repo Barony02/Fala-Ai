@@ -1,23 +1,24 @@
-from app.schemas.schemas import LoginSchema
-from app.models.models import Usuario
-import bcrypt
-
 from fastapi import Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-
 from app.config.database import get_db
 from app.jwt_config import verificar_token
+from app.models.models import Usuario
+from app.schemas.schemas import LoginSchema
+import bcrypt
 
-from fastapi import Depends, Header
-from app.jwt_config import verificar_token
-from app.security import get_token
+# Declara explicitamente o esquema Bearer
+security_scheme = HTTPBearer()
 
-from typing import Optional
-
-def get_current_user(token: str = Depends(get_token), db: Session = Depends(get_db)):
-    print("TOKEN:", token)
-    dados = verificar_token(token)
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security_scheme), 
+    db: Session = Depends(get_db)
+):
+    # Recupera a string de token correta de dentro do objeto HTTPAuthorizationCredentials
+    token_string = credentials.credentials
+    
+    print("TOKEN:", token_string)
+    dados = verificar_token(token_string)
 
     usuario = (
         db.query(Usuario)
