@@ -12,6 +12,7 @@ class UsuarioCadastroSchema(BaseModel):
     nome: str
     email: EmailStr
     senha: str
+    setor_sigla: str
     
 class TokenSchema(BaseModel):
     access_token: str

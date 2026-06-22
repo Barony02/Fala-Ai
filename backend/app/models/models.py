@@ -17,7 +17,7 @@ class Usuario(Base):
     email = Column(String(150), unique=True, nullable=False)
     senha_hash = Column(String(255), nullable=False)
     perfil = Column(Enum('Solicitante', 'Gestor'), default='Solicitante')
-    setor_id = Column(Integer, ForeignKey('setores.id'))
+    setor_id = Column(Integer, ForeignKey('setores.id'), nullable=False)
     ativo = Column(Boolean, default=True)
     tentativas_login = Column(Integer, default=0)
     bloqueado_ate = Column(DateTime, nullable=True)

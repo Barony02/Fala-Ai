@@ -61,7 +61,7 @@ def cadastrar_usuario(usuarios: UsuarioCadastroSchema, db: Session = Depends(get
     from app.models.models import Usuario
     from bcrypt import hashpw, gensalt
     senha_hashed = hashpw(usuarios.senha.encode('utf-8'), gensalt()).decode('utf-8')
-    usuario = Usuario(nome=usuarios.nome, email=usuarios.email, senha_hash=senha_hashed)
+    usuario = Usuario(nome=usuarios.nome, email=usuarios.email, senha_hash=senha_hashed, setor_id=db.query(Setor).filter(Setor.sigla == usuarios.setor_sigla).first().id)
     db.add(usuario)
     db.commit()
     db.refresh(usuario)
