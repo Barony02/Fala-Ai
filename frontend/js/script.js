@@ -25,6 +25,10 @@ form.addEventListener("submit", async (event) => {
         const data = await response.json();
 
         if (response.ok) {
+            localStorage.setItem(
+                "token",
+                data.access_token
+            );
             mensagem.textContent = "Login realizado com sucesso";
             mensagem.style.color = "green";
             

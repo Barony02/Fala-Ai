@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Abrir Chamado - Sistema de Chamados</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/abrir-chamado.css">
+    <script src="/js/sidebar.js" defer></script>
+</head>
+<body>
+
+<div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+
+    <main class="content-area">
+        <h1>Abrir Novo Chamado</h1>
+        <p>Preencha os dados abaixo para criar um novo chamado</p>
+
+        <form id="chamadoForm" class="form-chamado">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="titulo">Título *</label>
+                    <input 
+                        type="text" 
+                        id="titulo" 
+                        name="titulo" 
+                        placeholder="Ex: Problema com impressora"
+                        required
+                        maxlength="100"
+                    >
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="descricao">Descrição *</label>
+                    <textarea 
+                        id="descricao" 
+                        name="descricao" 
+                        placeholder="Descreva o problema em detalhes..."
+                        required
+                        maxlength="2000"
+                        rows="5"
+                    ></textarea>
+                </div>
+            </div>
+
+            <div class="form-row-flex">
+                <div class="form-group">
+                    <label for="setorSolicitante">Setor Solicitante *</label>
+                    <select id="setorSolicitante" name="setor_solicitante_id" required>
+                        <option value="">Carregando...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="setorResponsavel">Setor Responsável *</label>
+                    <select id="setorResponsavel" name="setor_responsavel_id" required>
+                        <option value="">Carregando...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="prioridade">Prioridade *</label>
+                    <select id="prioridade" name="prioridade" required>
+                        <option value="">Selecione...</option>
+                        <option value="Baixa">Baixa</option>
+                        <option value="Média">Média</option>
+                        <option value="Alta">Alta</option>
+                        <option value="Urgente">Urgente</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-enviar">Abrir Chamado</button>
+                <button type="reset" class="btn-cancelar">Limpar</button>
+            </div>
+
+            <div id="mensagem" class="mensagem"></div>
+        </form>
+    </main>
+</div>
+
+<script src="/js/abrir-chamado.js"></script>
+
+</body>
+</html>
