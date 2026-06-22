@@ -24,6 +24,8 @@ services:
       - "host.docker.internal:host-gateway"
     environment:
       - DATABASE_URL=mysql+pymysql://root:senhachamadosmariana@host.docker.internal:3307/camara_chamados
+    volumes:
+      - ./tests:/app/tests
 
   frontend:
     image: nginx:alpine
