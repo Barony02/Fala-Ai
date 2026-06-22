@@ -1,12 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header
-from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from app.config.database import get_db
-from app.models.models import Setor
-from app.security import get_token, verificar_token
-from app.controllers.auth import get_current_user
+from app.models.models import Setor, Usuario
+from app.controllers.auth import get_current_user, get_current_gestor
 from app.controllers.request import abrirChamado
-from app.schemas.schemas import LoginSchema, SetorSchema, PedidoSchema, UsuarioCadastroSchema, TokenSchema
+from app.schemas.schemas import LoginSchema, SetorSchema, PedidoSchema, UsuarioCadastroSchema
 
 router = APIRouter()
 
@@ -14,19 +12,12 @@ router = APIRouter()
 def teste_auth(authorization: str = Header(None)):
     return {"authorization": authorization}
 
-def verificar_perfil_gestor(token: str = Depends(get_token)):
-    """Verifica se o usuário tem perfil Gestor"""
-    payload = verificar_token(token)
-    if payload['perfil'] != "Gestor":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado. Apenas Gestor pode realizar esta ação")
-    return payload
-
-def verificar_autenticacao(token: str = Depends(get_token)):
-    """Verifica se o usuário está autenticado"""
-    return verificar_token(token)
-
 @router.post("/setores")
-def cadastrar_setor(setor: SetorSchema, db: Session = Depends(get_db), auth: dict = Depends(verificar_perfil_gestor)):
+def cadastrar_setor(
+    setor: SetorSchema, 
+    db: Session = Depends(get_db), 
+    #gestor: Usuario = Depends(get_current_gestor) # Usa a nova dependência nativa
+):
     novo_setor = Setor(nome=setor.nome, sigla=setor.sigla)
     db.add(novo_setor)
     db.commit()
@@ -34,7 +25,10 @@ def cadastrar_setor(setor: SetorSchema, db: Session = Depends(get_db), auth: dic
     return {"mensagem": "Setor cadastrado com sucesso", "id": novo_setor.id}
 
 @router.get("/setores")
-def listar_setores(db: Session = Depends(get_db), auth: dict = Depends(verificar_autenticacao)):
+def listar_setores(
+    db: Session = Depends(get_db), 
+    usuario: Usuario = Depends(get_current_user) # Qualquer usuário autenticado pode listar
+):
     return db.query(Setor).all()
 
 @router.post("/login")
@@ -74,5 +68,9 @@ def cadastrar_usuario(usuarios: UsuarioCadastroSchema, db: Session = Depends(get
     return {"mensagem": "Usuário cadastrado com sucesso", "id": usuario.id}
 
 @router.post("/realizarChamado")
-def criar_chamado(pedido: PedidoSchema, usuario = Depends(get_current_user), db: Session = Depends(get_db)):
+def criar_chamado(
+    pedido: PedidoSchema, 
+    usuario: Usuario = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
     return abrirChamado(usuario, pedido, db)

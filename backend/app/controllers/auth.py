@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from app.config.database import get_db
@@ -7,17 +7,13 @@ from app.models.models import Usuario
 from app.schemas.schemas import LoginSchema
 import bcrypt
 
-# Declara explicitamente o esquema Bearer
 security_scheme = HTTPBearer()
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security_scheme), 
     db: Session = Depends(get_db)
 ):
-    # Recupera a string de token correta de dentro do objeto HTTPAuthorizationCredentials
     token_string = credentials.credentials
-    
-    print("TOKEN:", token_string)
     dados = verificar_token(token_string)
 
     usuario = (
@@ -28,10 +24,19 @@ def get_current_user(
 
     if usuario is None:
         raise HTTPException(
-            status_code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuário não encontrado"
         )
 
+    return usuario
+
+# Nova dependência para proteger rotas restritas a Gestores
+def get_current_gestor(usuario: Usuario = Depends(get_current_user)):
+    if usuario.perfil != "Gestor":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado. Apenas Gestor pode realizar esta ação"
+        )
     return usuario
 
 def verificarSenha(senha: str, senha_hashed: str) -> bool:
@@ -39,7 +44,6 @@ def verificarSenha(senha: str, senha_hashed: str) -> bool:
         senha.encode("utf-8"),
         senha_hashed.encode("utf-8")
     )
-
 
 def autenticar(db: Session, login: LoginSchema):
     usuario = (
