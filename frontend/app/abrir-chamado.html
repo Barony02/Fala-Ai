@@ -48,16 +48,16 @@
 
             <div class="form-row-flex">
                 <div class="form-group">
-                    <label for="setorSolicitante">Setor Solicitante *</label>
-                    <select id="setorSolicitante" name="setor_solicitante_id" required>
+                    <label for="setorResponsavel">Setor Responsável *</label>
+                    <select id="setorResponsavel" name="setor_responsavel_id" required>
                         <option value="">Carregando...</option>
                     </select>
                 </div>
 
                 <div class="form-group">
-                    <label for="setorResponsavel">Setor Responsável *</label>
-                    <select id="setorResponsavel" name="setor_responsavel_id" required>
-                        <option value="">Carregando...</option>
+                    <label for="usuarioResponsavel">Responsável Específico (Opcional)</label>
+                    <select id="usuarioResponsavel" name="usuario_responsavel_id" disabled>
+                        <option value="">Selecione um setor primeiro...</option>
                     </select>
                 </div>
 
@@ -68,7 +68,6 @@
                         <option value="Baixa">Baixa</option>
                         <option value="Média">Média</option>
                         <option value="Alta">Alta</option>
-                        <option value="Urgente">Urgente</option>
                     </select>
                 </div>
             </div>

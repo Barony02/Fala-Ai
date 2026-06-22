@@ -74,3 +74,20 @@ def criar_chamado(
     db: Session = Depends(get_db)
 ):
     return abrirChamado(usuario, pedido, db)
+
+@router.get("/setores/{setor_id}/usuarios")
+def listar_usuarios_por_setor(
+    setor_id: int, 
+    db: Session = Depends(get_db), 
+    usuario_autenticado: Usuario = Depends(get_current_user)
+):
+    from app.models.models import Usuario
+    
+    # Busca apenas os usuários ativos que pertencem ao setor informado
+    usuarios = db.query(Usuario).filter(
+        Usuario.setor_id == setor_id, 
+        Usuario.ativo == True
+    ).all()
+    
+    # Retorna uma lista contendo apenas id e nome para o select do frontend
+    return [{"id": u.id, "nome": u.nome} for u in usuarios]

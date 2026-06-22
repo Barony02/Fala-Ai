@@ -1,5 +1,5 @@
-from pydantic import BaseModel, EmailStr
-
+from pydantic import BaseModel, EmailStr, field_validator
+from typing import Optional
 class LoginSchema(BaseModel):
     email: EmailStr
     senha: str
@@ -26,4 +26,13 @@ class PedidoSchema(BaseModel):
     setor_solicitante_id: int
     setor_responsavel_id: int
     prioridade: str
- 
+    usuario_responsavel_id: Optional[int] = None
+
+    # Intercepta o valor antes da validação final do Pydantic
+    @field_validator('usuario_responsavel_id', mode='before')
+    @classmethod
+    def tratar_usuario_nulo(cls, v):
+        # Se vier 0, string vazia "" ou se for avaliado como falso (com exceção de None puro)
+        if v == 0 or v == "" or v is None:
+            return None
+        return int(v)

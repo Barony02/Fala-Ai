@@ -34,7 +34,7 @@ class Chamado(Base):
     usuario_responsavel_id = Column(Integer, ForeignKey('usuarios.id'), nullable=True)
     status = Column(Enum('Aberto', 'Em Progresso', 'Fechado'), default='Aberto')
     prioridade = Column(Enum('Baixa', 'Média', 'Alta'), default='Média')
-    usuario_id = Column(Integer, ForeignKey('usuarios.id'), nullable=False)
+    #usuario_id = Column(Integer, ForeignKey('usuarios.id'), nullable=False)
     data_criacao = Column(DateTime, nullable=False)
     data_atualizacao = Column(DateTime, nullable=False)
     
