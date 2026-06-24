@@ -19,8 +19,17 @@ function carregarSidebar() {
 
 function montarSidebar(html) {
     container.innerHTML = html;
+    configurarVisibilidadePorPerfil();
     destacarMenuAtivo();
     configurarBotaoSair();
+}
+
+function configurarVisibilidadePorPerfil() {
+    const perfil = sessionStorage.getItem('perfil'); 
+
+    if (perfil === 'Gestor' || perfil === 'Administrador') {
+        document.querySelectorAll('.admin-gestor-view').forEach(el => el.style.display = 'block');
+    } 
 }
 
 function destacarMenuAtivo() {
@@ -38,7 +47,8 @@ function configurarBotaoSair() {
     const btnSair = document.getElementById("btn-sair");
     if (btnSair) {
         btnSair.addEventListener("click", () => {
-            sessionStorage.removeItem('sidebar_html'); // Limpa o cache ao sair
+            sessionStorage.removeItem('sidebar_html');
+            sessionStorage.removeItem('perfil'); 
             window.location.href = "/index.html"; 
         });
     }

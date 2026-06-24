@@ -29,6 +29,10 @@ form.addEventListener("submit", async (event) => {
                 "token",
                 data.access_token
             );
+            
+            // Salvando o perfil retornado pelo backend no sessionStorage
+            sessionStorage.setItem("perfil", data.perfil);
+
             mensagem.textContent = "Login realizado com sucesso";
             mensagem.style.color = "green";
             
