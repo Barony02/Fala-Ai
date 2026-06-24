@@ -39,6 +39,14 @@ def get_current_gestor(usuario: Usuario = Depends(get_current_user)):
         )
     return usuario
 
+def get_current_administrador(usuario: Usuario = Depends(get_current_user)):
+    if usuario.perfil != "Administrador":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado. Apenas Administrador pode realizar esta ação"
+        )
+    return usuario
+
 def verificarSenha(senha: str, senha_hashed: str) -> bool:
     return bcrypt.checkpw(
         senha.encode("utf-8"),
