@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meus Chamados - Sistema de Chamados</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/meus-chamados.css"> 
+    <script src="/js/sidebar.js" defer></script>
+    <script src="/js/meus-chamados.js" defer></script>
+</head>
+<body>
+
+<div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+
+    <main class="content-area">
+        <h1>Meus Chamados</h1>
+        <p>Consulte e clique sobre um chamado para visualizar os detalhes completos</p>
+
+        <div class="filtro-container">
+            <label for="statusFilter"><strong>Filtrar por Status:</strong></label>
+            <select id="statusFilter">
+                <option value="">Todos</option>
+                <option value="Aberto">Aberto</option>
+                <option value="Em Progresso">Em Progresso</option>
+                <option value="Fechado">Fechado</option>
+            </select>
+        </div>
+
+        <table class="tabela-chamados">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Título</th>
+                    <th>Status</th>
+                    <th>Prioridade</th>
+                    <th>Data de Criação</th>
+                </tr>
+            </thead>
+            <tbody id="chamadosTableBody">
+                <tr>
+                    <td colspan="5" style="text-align: center; color: #666;">Carregando chamados...</td>
+                </tr>
+            </tbody>
+        </table>
+    </main>
+</div>
+
+<div id="chamadoModal" class="modal">
+    <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <h2>Detalhes do Chamado #<span id="modalId"></span></h2>
+        <hr>
+        <div class="modal-body">
+            <p><strong>Título:</strong> <span id="modalTitulo"></span></p>
+            <p><strong>Status:</strong> <span id="modalStatus" class="status-badge"></span></p>
+            <p><strong>Prioridade:</strong> <span id="modalPrioridade"></span></p>
+            <p><strong>Setor Destinatário:</strong> <span id="modalSetor"></span></p>
+            <p><strong>Responsável Específico:</strong> <span id="modalResponsavel"></span></p>
+            <p><strong>Data de Abertura:</strong> <span id="modalData"></span></p>
+            <div class="detalhe-descricao">
+                <p><strong>Descrição detalhada:</strong></p>
+                <div id="modalDescricao" class="box-descricao"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

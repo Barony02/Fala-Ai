@@ -91,3 +91,43 @@ def listar_usuarios_por_setor(
     
     # Retorna uma lista contendo apenas id e nome para o select do frontend
     return [{"id": u.id, "nome": u.nome} for u in usuarios]
+
+
+
+@router.get("/meus-chamados")
+def listar_meus_chamados(
+    status: str = None, 
+    db: Session = Depends(get_db), 
+    usuario: Usuario = Depends(get_current_user)
+):
+    from app.models.models import Chamado, Setor, Usuario as ModelUsuario
+    
+    query = db.query(Chamado).filter(Chamado.usuario_solicitante_id == usuario.id)
+    
+    if status:
+        query = query.filter(Chamado.status == status)
+        
+    chamados = query.all()
+    
+    resultado = []
+    for c in chamados:
+        # Busca o nome do setor responsável
+        setor_res = db.query(Setor).filter(Setor.id == c.setor_responsavel_id).first()
+        
+        # Busca o nome do usuário responsável (se houver)
+        usuario_res = None
+        if c.usuario_responsavel_id:
+            usuario_res = db.query(ModelUsuario).filter(ModelUsuario.id == c.usuario_responsavel_id).first()
+            
+        resultado.append({
+            "id": c.id,
+            "titulo": c.titulo,
+            "descricao": c.descricao,
+            "status": c.status,
+            "prioridade": c.prioridade,
+            "data_criacao": c.data_criacao.isoformat() if c.data_criacao else None,
+            "setor_responsavel": setor_res.nome if setor_res else "Não informado",
+            "usuario_responsavel": usuario_res.nome if usuario_res else "Enviar para todos (Nenhum específico)"
+        })
+        
+    return resultado
