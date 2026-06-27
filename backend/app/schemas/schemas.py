@@ -13,6 +13,7 @@ class UsuarioCadastroSchema(BaseModel):
     email: EmailStr
     senha: str
     setor_sigla: str
+    perfil: Optional[str] = "Solicitante" # Define como opcional, assumindo "Solicitante" por padrão
     
 class TokenSchema(BaseModel):
     access_token: str

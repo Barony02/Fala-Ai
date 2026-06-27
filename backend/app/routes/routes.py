@@ -131,3 +131,109 @@ def listar_meus_chamados(
         })
         
     return resultado
+
+@router.get("/usuarios")
+def listar_usuarios(
+    db: Session = Depends(get_db), 
+    usuario_autenticado: Usuario = Depends(get_current_user)
+):
+    # Bloqueia se for solicitante comum
+    if usuario_autenticado.perfil not in ["Gestor", "Administrador"]:
+        raise HTTPException(status_code=403, detail="Acesso não autorizado")
+
+    query = db.query(Usuario)
+
+    # REGRA DE ESCOPO: Se for Gestor, filtra apenas usuários do mesmo setor
+    if usuario_autenticado.perfil == "Gestor":
+        query = query.filter(Usuario.setor_id == usuario_autenticado.setor_id)
+    
+    usuarios = query.all()
+
+    # Formata a resposta trazendo a sigla do setor para exibição amigável no front
+    resultado = []
+    for u in usuarios:
+        setor = db.query(Setor).filter(Setor.id == u.setor_id).first()
+        resultado.append({
+            "id": u.id,
+            "nome": u.nome,
+            "email": u.email,
+            "perfil": u.perfil,
+            "setor_id": u.setor_id,
+            "setor_sigla": setor.sigla if setor else ""
+        })
+    return resultado
+
+
+@router.post("/usuarios")
+def cadastrar_usuario_escopo(
+    payload: UsuarioCadastroSchema, 
+    db: Session = Depends(get_db), 
+    usuario_autenticado: Usuario = Depends(get_current_user)
+):
+    if usuario_autenticado.perfil not in ["Gestor", "Administrador"]:
+        raise HTTPException(status_code=403, detail="Permissão insuficiente")
+
+    # Busca o ID do setor passado por sigla
+    setor_alvo = db.query(Setor).filter(Setor.sigla == payload.setor_sigla.upper()).first()
+    if not setor_alvo:
+        raise HTTPException(status_code=404, detail="Setor não encontrado")
+
+    # REGRA DE ESCOPO: Gestor não pode cadastrar usuários fora de seu setor
+    if usuario_autenticado.perfil == "Gestor" and setor_alvo.id != usuario_autenticado.setor_id:
+        raise HTTPException(status_code=403, detail="Gestores só podem cadastrar usuários no seu próprio setor")
+
+    # REGRA DE ESCOPO: Gestor não pode criar um Administrador
+    if usuario_autenticado.perfil == "Gestor" and payload.perfil == "Administrador":
+        raise HTTPException(status_code=403, detail="Um gestor não pode criar perfis de Administrador")
+
+    # Lógica de hash de senha (exemplo usando bcrypt compatível com seu auth.py)
+    import bcrypt
+    senha_hashed = bcrypt.hashpw(payload.senha.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+    novo_usuario = Usuario(
+        nome=payload.nome,
+        email=payload.email,
+        senha_hash=senha_hashed,
+        perfil=payload.perfil,
+        setor_id=setor_alvo.id
+    )
+    
+    db.add(novo_usuario)
+    db.commit()
+    return {"mensagem": "Usuário criado com sucesso"}
+
+
+@router.put("/usuarios/{id_usuario}")
+def editar_usuario_escopo(
+    id_usuario: int, 
+    payload: dict, # Pode mapear para um Schema específico de atualização se preferir
+    db: Session = Depends(get_db), 
+    usuario_autenticado: Usuario = Depends(get_current_user)
+):
+    if usuario_autenticado.perfil not in ["Gestor", "Administrador"]:
+        raise HTTPException(status_code=403, detail="Permissão insuficiente")
+
+    usuario_alvo = db.query(Usuario).filter(Usuario.id == id_usuario).first()
+    if not usuario_alvo:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    # REGRA DE ESCOPO: Gestor não pode alterar usuários de outro setor
+    if usuario_autenticado.perfil == "Gestor" and usuario_alvo.setor_id != usuario_autenticado.setor_id:
+        raise HTTPException(status_code=403, detail="Acesso negado às informações deste setor")
+
+    setor_alvo = db.query(Setor).filter(Setor.sigla == payload.get("setor_sigla").upper()).first()
+    if not setor_alvo:
+        raise HTTPException(status_code=404, detail="Setor informado inválido")
+
+    # REGRA DE ESCOPO: Gestor não pode mover o usuário para outro setor
+    if usuario_autenticado.perfil == "Gestor" and setor_alvo.id != usuario_autenticado.setor_id:
+        raise HTTPException(status_code=403, detail="Você não pode mover usuários para fora do seu setor")
+
+    # Atualização dos campos permitidos
+    usuario_alvo.nome = payload.get("nome", usuario_alvo.nome)
+    usuario_alvo.email = payload.get("email", usuario_alvo.email)
+    usuario_alvo.perfil = payload.get("perfil", usuario_alvo.perfil)
+    usuario_alvo.setor_id = setor_alvo.id
+
+    db.commit()
+    return {"mensagem": "Usuário atualizado com sucesso"}
