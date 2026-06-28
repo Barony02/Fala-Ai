@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from app.config.database import get_db
-from app.models.models import Setor, Usuario
+from app.models.models import Setor, Usuario, Chamado
 from app.controllers.auth import get_current_user, get_current_gestor
 from app.controllers.request import abrirChamado
 from app.schemas.schemas import LoginSchema, SetorSchema, PedidoSchema, UsuarioCadastroSchema
@@ -237,3 +237,80 @@ def editar_usuario_escopo(
 
     db.commit()
     return {"mensagem": "Usuário atualizado com sucesso"}
+
+
+@router.get("/setores-dashboard")
+def listar_setores_dashboard(
+    db: Session = Depends(get_db), 
+    usuario_autenticado: Usuario = Depends(get_current_user)
+):
+    if usuario_autenticado.perfil not in ["Gestor", "Administrador"]:
+        raise HTTPException(status_code=403, detail="Não autorizado")
+
+    query = db.query(Setor)
+    
+    # REGRA DE ESCOPO: Gestor só visualiza o próprio setor
+    if usuario_autenticado.perfil == "Gestor":
+        query = query.filter(Setor.id == usuario_autenticado.setor_id)
+        
+    setores = query.order_by(Setor.nome.asc()).all()
+    
+    resultado = []
+    for s in setores:
+        # Contagem de funcionários ativos no setor
+        total_funcionarios = db.query(Usuario).filter(Usuario.setor_id == s.id, Usuario.ativo == True).count()
+        
+        # Agregação de chamados por status vinculados ao setor_responsavel_id
+        chamados_abertos = db.query(Chamado).filter(Chamado.setor_responsavel_id == s.id, Chamado.status == "Aberto").count()
+        chamados_andamento = db.query(Chamado).filter(Chamado.setor_responsavel_id == s.id, Chamado.status == "Em Progresso").count()
+        chamados_fechados = db.query(Chamado).filter(Chamado.setor_responsavel_id == s.id, Chamado.status == "Fechado").count()
+        
+        resultado.append({
+            "id": s.id,
+            "nome": s.nome,
+            "sigla": s.sigla,
+            "total_funcionarios": total_funcionarios,
+            "chamados_abertos": chamados_abertos,
+            "chamados_andamento": chamados_andamento,
+            "chamados_fechados": chamados_fechados
+        })
+        
+    return resultado
+
+@router.get("/setores/{setor_id}/chamados")
+def listar_chamados_do_setor(
+    setor_id: int,
+    db: Session = Depends(get_db),
+    usuario_autenticado: Usuario = Depends(get_current_user)
+):
+    if usuario_autenticado.perfil not in ["Gestor", "Administrador"]:
+        raise HTTPException(status_code=403, detail="Não autorizado")
+        
+    # REGRA DE ESCOPO: Gestor não pode ver chamados de outros setores
+    if usuario_autenticado.perfil == "Gestor" and usuario_autenticado.setor_id != setor_id:
+        raise HTTPException(status_code=403, detail="Permissão negada ao escopo do setor")
+
+    # Retorna os chamados ordenados de forma ascendente pela data_criacao (tempo de abertura)
+    chamados = db.query(Chamado).filter(Chamado.setor_responsavel_id == setor_id).order_by(Chamado.data_criacao.asc()).all()
+    
+    return chamados
+
+@router.put("/setores/{setor_id}")
+def atualizar_setor(
+    setor_id: int,
+    payload: dict,
+    db: Session = Depends(get_db),
+    usuario_autenticado: Usuario = Depends(get_current_user)
+):
+    # REGRA DE SEGURANÇA: Apenas administradores alteram setores
+    if usuario_autenticado.perfil != "Administrador":
+        raise HTTPException(status_code=403, detail="Apenas administradores podem gerenciar setores")
+        
+    setor = db.query(Setor).filter(Setor.id == setor_id).first()
+    if not setor:
+        raise HTTPException(status_code=404, detail="Setor não encontrado")
+        
+    setor.nome = payload.get("nome", setor.nome)
+    setor.sigla = payload.get("sigla", setor.sigla).upper()
+    db.commit()
+    return {"mensagem": "Setor atualizado com sucesso"}
