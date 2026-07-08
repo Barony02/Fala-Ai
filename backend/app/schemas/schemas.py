@@ -1,5 +1,8 @@
 from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional
+
+STATUS_VALIDOS = {"Aberto", "Em Progresso", "Fechado"}
+PRIORIDADES_VALIDAS = {"Baixa", "Média", "Alta"}
 class LoginSchema(BaseModel):
     email: EmailStr
     senha: str
@@ -37,3 +40,33 @@ class PedidoSchema(BaseModel):
         if v == 0 or v == "" or v is None:
             return None
         return int(v)
+
+
+class AtualizarChamadoSchema(BaseModel):
+    status: Optional[str] = None
+    prioridade: Optional[str] = None
+    usuario_responsavel_id: Optional[int] = None
+    justificativa: Optional[str] = None
+
+
+class NotaInternaSchema(BaseModel):
+    comentario: str
+
+    @field_validator('comentario')
+    @classmethod
+    def comentario_nao_vazio(cls, v):
+        if not v or not v.strip():
+            raise ValueError("O comentário não pode ser vazio")
+        return v.strip()
+
+
+class TransferenciaSchema(BaseModel):
+    setor_destino_id: int
+    justificativa: str
+
+    @field_validator('justificativa')
+    @classmethod
+    def justificativa_nao_vazia(cls, v):
+        if not v or not v.strip():
+            raise ValueError("A justificativa é obrigatória")
+        return v.strip()

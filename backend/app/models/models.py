@@ -41,6 +41,14 @@ class Chamado(Base):
     # Relacionamento com Anexos
     anexos = relationship("Anexo", back_populates="chamado", cascade="all, delete-orphan")
 
+    # Relacionamento com o histórico (notas internas, transferências, mudanças de status/prioridade/responsável)
+    historico = relationship(
+        "HistoricoChamado",
+        back_populates="chamado",
+        cascade="all, delete-orphan",
+        order_by="HistoricoChamado.data_criacao.asc()"
+    )
+
 
 class Anexo(Base):
     __tablename__ = "anexos"
@@ -56,3 +64,22 @@ class Anexo(Base):
     
     # Relacionamento com Chamado
     chamado = relationship("Chamado", back_populates="anexos")
+
+
+class HistoricoChamado(Base):
+    __tablename__ = "historico_chamados"
+
+    id = Column(Integer, primary_key=True, index=True)
+    chamado_id = Column(Integer, ForeignKey('chamados.id'), nullable=False, index=True)
+    usuario_autor_id = Column(Integer, ForeignKey('usuarios.id'), nullable=False)
+    tipo = Column(Enum('Nota', 'Status', 'Prioridade', 'Responsável', 'Transferência'), nullable=False)
+    comentario = Column(String(1000), nullable=True)  # texto da nota OU justificativa
+    valor_anterior = Column(String(50), nullable=True)  # usado em Status/Prioridade/Responsável
+    valor_novo = Column(String(50), nullable=True)
+    setor_origem_id = Column(Integer, ForeignKey('setores.id'), nullable=True)  # usado em Transferência
+    setor_destino_id = Column(Integer, ForeignKey('setores.id'), nullable=True)
+    visivel_solicitante = Column(Boolean, default=True, nullable=False)
+    data_criacao = Column(DateTime, nullable=False)
+
+    # Relacionamento com Chamado
+    chamado = relationship("Chamado", back_populates="historico")

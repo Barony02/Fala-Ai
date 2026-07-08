@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config.database import engine, Base
 from app.routes.routes import router
+from app.routes.chamados import router as chamados_router
 
 # Cria as tabelas do banco de dados automaticamente se não existirem
 Base.metadata.create_all(bind=engine)
@@ -18,6 +19,7 @@ app.add_middleware(
 )
 
 app.include_router(router, prefix="/api")
+app.include_router(chamados_router, prefix="/api")
 
 if __name__ == "__main__":
     import uvicorn
