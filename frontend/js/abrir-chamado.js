@@ -16,6 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     carregarSetores();
+    carregarChamadosRecentes();
 });
 
 async function carregarSetores() {
@@ -51,6 +52,81 @@ async function carregarSetores() {
     } catch (error) {
         console.error("Erro ao carregar setores:", error);
         mostrarMensagem("Erro ao carregar setores", "erro");
+    }
+}
+
+async function carregarChamadosRecentes() {
+    const tabelaBody = document.getElementById("tabelaChamadosRecentes");
+    if (!tabelaBody) {
+        console.error("Erro: Elemento #tabelaChamadosRecentes não foi encontrado no HTML.");
+        return;
+    }
+
+    try {
+        const token = localStorage.getItem("token");
+        
+        const response = await fetch(`${API_URL}/meus-chamados`, {
+            headers: {
+                "Authorization": `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Erro na requisição: Status ${response.status}`);
+        }
+
+        let chamados = await response.json();
+
+        // Limpa a tabela
+        tabelaBody.innerHTML = "";
+
+        if (!chamados || chamados.length === 0) {
+            tabelaBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #64748b; padding: 20px;">Você ainda não abriu nenhum chamado.</td></tr>`;
+            return;
+        }
+
+        // Ordena por ID decrescente (mais recentes primeiro)
+        chamados.sort((a, b) => b.id - a.id);
+        
+        // Pega no máximo os 5 primeiros
+        const chamadosLimitados = chamados.slice(0, 5);
+
+        chamadosLimitados.forEach(chamado => {
+            const tr = document.createElement("tr");
+
+            // Formatação de data
+            let dataFormatada = "N/A";
+            if (chamado.data_criacao) {
+                const dataObj = new Date(chamado.data_criacao);
+                dataFormatada = dataObj.toLocaleDateString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                });
+            }
+
+            // Define a classe do badge com base no status vindo do banco
+            let badgeClass = "badge-analise";
+            const statusNormalizado = chamado.status ? chamado.status.toLowerCase() : "";
+            
+            if (statusNormalizado === "resolvido" || statusNormalizado === "fechado" || statusNormalizado === "concluído") {
+                badgeClass = "badge-resolvido";
+            } else if (statusNormalizado === "em progresso" || statusNormalizado === "em andamento" || statusNormalizado === "atendimento") {
+                badgeClass = "badge-andamento";
+            }
+
+            tr.innerHTML = `
+                <td>#${chamado.id}</td>
+                <td class="td-truncate" title="${chamado.titulo}">${chamado.titulo}</td>
+                <td>${dataFormatada}</td>
+                <td><span class="status-badge ${badgeClass}">${chamado.status || 'Aberto'}</span></td>
+            `;
+            tabelaBody.appendChild(tr);
+        });
+
+    } catch (error) {
+        console.error("Erro ao carregar ou renderizar chamados recentes:", error);
+        tabelaBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #ef4444; padding: 20px;">Não foi possível carregar o histórico de chamados.</td></tr>`;
     }
 }
 
@@ -143,9 +219,8 @@ form.addEventListener("submit", async (e) => {
             form.reset();
             selectUsuarioResponsavel.innerHTML = '<option value="">Selecione um setor primeiro...</option>';
             selectUsuarioResponsavel.disabled = true;
-            setTimeout(() => {
-                window.location.href = "/app/meus-chamados.html";
-            }, 1500);
+            
+            carregarChamadosRecentes();
         } else {
             mostrarMensagem(data.detail || "Erro ao abrir chamado", "erro");
         }
