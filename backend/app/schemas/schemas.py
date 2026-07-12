@@ -70,3 +70,10 @@ class TransferenciaSchema(BaseModel):
         if not v or not v.strip():
             raise ValueError("A justificativa é obrigatória")
         return v.strip()
+
+class AtualizarPerfilSchema(BaseModel):
+    nome: str
+
+class AlterarSenhaSchema(BaseModel):
+    senha_atual: str
+    nova_senha: str

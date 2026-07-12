@@ -5,7 +5,7 @@ from app.models.models import Setor, Usuario, Chamado
 from app.controllers.auth import get_current_user, get_current_gestor
 from app.controllers.request import abrirChamado
 from app.schemas.schemas import LoginSchema, SetorSchema, PedidoSchema, UsuarioCadastroSchema
-
+from app.schemas.schemas import AtualizarPerfilSchema, AlterarSenhaSchema
 router = APIRouter()
 
 @router.get("/teste-auth")
@@ -163,6 +163,21 @@ def listar_usuarios(
         })
     return resultado
 
+@router.get("/usuarios/perfil/me")
+def obter_perfil_logado(
+    db: Session = Depends(get_db), 
+    usuario_autenticado: Usuario = Depends(get_current_user)
+):
+    from app.models.models import Setor
+    setor = db.query(Setor).filter(Setor.id == usuario_autenticado.setor_id).first()
+    
+    return {
+        "nome": usuario_autenticado.nome,
+        "email": usuario_autenticado.email,
+        "matricula": f"#{usuario_autenticado.id}",
+        "setor": setor.nome if setor else "Não informado",
+        "perfil": usuario_autenticado.perfil
+    }
 
 @router.post("/usuarios")
 def cadastrar_usuario_escopo(
@@ -314,3 +329,35 @@ def atualizar_setor(
     setor.sigla = payload.get("sigla", setor.sigla).upper()
     db.commit()
     return {"mensagem": "Setor atualizado com sucesso"}
+
+
+
+
+@router.put("/usuarios/me/perfil")
+def atualizar_nome_perfil(
+    payload: AtualizarPerfilSchema,
+    db: Session = Depends(get_db),
+    usuario_autenticado: Usuario = Depends(get_current_user)
+):
+    usuario_autenticado.nome = payload.nome
+    db.commit()
+    return {"mensagem": "Informações pessoais atualizadas com sucesso!"}
+
+@router.put("/usuarios/me/senha")
+def alterar_senha_perfil(
+    payload: AlterarSenhaSchema,
+    db: Session = Depends(get_db),
+    usuario_autenticado: Usuario = Depends(get_current_user)
+):
+    from app.controllers.auth import verificarSenha
+    from bcrypt import hashpw, gensalt
+
+    if not verificarSenha(payload.senha_atual, usuario_autenticado.senha_hash):
+        raise HTTPException(status_code=400, detail="A senha atual está incorreta.")
+
+    if payload.senha_atual == payload.nova_senha:
+        raise HTTPException(status_code=400, detail="A nova senha não pode ser igual à senha atual.")
+
+    usuario_autenticado.senha_hash = hashpw(payload.nova_senha.encode('utf-8'), gensalt()).decode('utf-8')
+    db.commit()
+    return {"mensagem": "Senha atualizada com sucesso!"}

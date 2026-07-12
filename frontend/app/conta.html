@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minha Conta - Câmara de Mariana</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/conta.css">
+</head>
+<body>
+    <div id="toast-container"></div>
+    <div class="dashboard-layout">
+        <div id="sidebar-container"></div>
+
+        <main class="content-area">
+            <header class="content-header">
+                <div class="title-with-icon">
+                    <!-- Ícone idêntico ao conceito de conta da sidebar (Avatar/User) -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="title-icon">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    <h1>Minha Conta</h1>
+                </div>
+                <p>Gerencie suas informações pessoais e configurações de segurança do sistema.</p>
+            </header>
+
+            <div class="profile-grid">
+                
+                <!-- Card 1: Resumo do Usuário -->
+                <div class="profile-card user-summary">
+                    <div class="avatar" id="user-avatar">--</div>
+                    <h2 id="summary-name">Carregando...</h2>
+                    <span class="badge" id="summary-perfil">Perfil</span>
+                    <p class="user-meta" id="summary-setor">Setor: --</p>
+                </div>
+
+                <!-- Card 2: Informações Pessoais -->
+                <div class="profile-card">
+                    <h3>Informações Pessoais</h3>
+                    <form id="form-perfil" class="profile-form">
+                        <div class="form-group">
+                            <label for="input-nome">Nome Completo</label>
+                            <input type="text" id="input-nome" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="input-email">E-mail Corporativo</label>
+                            <input type="email" id="input-email" disabled>
+                        </div>
+                        <div class="form-group">
+                            <label for="input-matricula">Matrícula</label>
+                            <input type="text" id="input-matricula" disabled>
+                        </div>
+                        <button type="submit" class="btn-primary">Salvar Alterações</button>
+                    </form>
+                </div>
+
+                <!-- Card 3: Alterar Senha -->
+                <div class="profile-card">
+                    <h3>Segurança e Senha</h3>
+                    <form id="form-senha" class="profile-form">
+                        <div class="form-group">
+                            <label for="senha-atual">Senha Atual</label>
+                            <input type="password" id="senha-atual" placeholder="••••••••" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="nova-senha">Nova Senha</label>
+                            <input type="password" id="nova-senha" placeholder="Mínimo 6 caracteres" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="confirmar-senha">Confirmar Nova Senha</label>
+                            <input type="password" id="confirmar-senha" placeholder="Digite a senha novamente" required>
+                        </div>
+                        <button type="submit" class="btn-secondary">Atualizar Senha</button>
+                    </form>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="/js/sidebar.js"></script>
+    <script src="/js/conta.js"></script>
+</body>
+</html>
