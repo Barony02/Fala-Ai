@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Abrir Chamado - Sistema de Chamados</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/abrir-chamado.css">
     <script src="/js/sidebar.js" defer></script>
@@ -14,71 +15,162 @@
     <div id="sidebar-container"></div>
 
     <main class="content-area">
-        <h1>Abrir Novo Chamado</h1>
-        <p>Preencha os dados abaixo para criar um novo chamado</p>
+        <!-- Breadcrumb (Navegação estrutural) -->
+        <nav class="breadcrumb">
+            <span>Dashboard</span> <i class="fa-solid fa-chevron-right"></i> <span>Chamados</span> <i class="fa-solid fa-chevron-right"></i> <span class="active">Novo Chamado</span>
+        </nav>
+        
+        <!-- Cabeçalho Atualizado com Ícone -->
+        <header class="header-title">
+            <h1><i class="fa-solid fa-circle-plus" style="color: #06b6d4; margin-right: 8px;"></i>Abrir Novo Chamado</h1>
+            <p>Preencha os dados abaixo para registrar um incidente ou solicitação no sistema.</p>
+        </header>
 
-        <form id="chamadoForm" class="form-chamado">
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="titulo">Título *</label>
-                    <input 
-                        type="text" 
-                        id="titulo" 
-                        name="titulo" 
-                        placeholder="Ex: Problema com impressora"
-                        required
-                        maxlength="100"
-                    >
-                </div>
+        <!-- Novo Container de Grelha (Garante o layout em duas colunas) -->
+        <div class="page-grid">
+            
+            <!-- Coluna Principal (Esquerda): Formulário + Tabela de Histórico -->
+            <div class="main-column">
+                <form id="chamadoForm" class="form-chamado">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="titulo">Título *</label>
+                            <div class="input-icon-wrapper">
+                                <i class="fa-solid fa-pen icon-field"></i>
+                                <input 
+                                    type="text" 
+                                    id="titulo" 
+                                    name="titulo" 
+                                    placeholder="Ex: Impressora do setor financeiro não liga"
+                                    required
+                                    maxlength="100"
+                                >
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="descricao">Descrição Detalhada *</label>
+                            <div class="input-icon-wrapper text-area-wrapper">
+                                <i class="fa-solid fa-align-left icon-field"></i>
+                                <textarea 
+                                    id="descricao" 
+                                    name="descricao" 
+                                    placeholder="Forneça o máximo de detalhes possível (erros exibidos, códigos, histórico do problema)..."
+                                    required
+                                    maxlength="2000"
+                                    rows="5"
+                                ></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row-flex">
+                        <div class="form-group">
+                            <label for="setorResponsavel">Setor Responsável *</label>
+                            <div class="input-icon-wrapper">
+                                <i class="fa-solid fa-sitemap icon-field"></i>
+                                <select id="setorResponsavel" name="setor_responsavel_id" required>
+                                    <option value="">Carregando...</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="usuarioResponsavel">Responsável Específico</label>
+                            <div class="input-icon-wrapper">
+                                <i class="fa-solid fa-user icon-field"></i>
+                                <select id="usuarioResponsavel" name="usuario_responsavel_id" disabled>
+                                    <option value="">Selecione um setor primeiro...</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="prioridade">Prioridade *</label>
+                            <div class="input-icon-wrapper">
+                                <i class="fa-solid fa-triangle-exclamation icon-field"></i>
+                                <select id="prioridade" name="prioridade" required>
+                                    <option value="">Selecione...</option>
+                                    <option value="Baixa">Baixa</option>
+                                    <option value="Média">Média</option>
+                                    <option value="Alta">Alta</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="reset" class="btn-cancelar">Limpar</button>
+                        <button type="submit" class="btn-enviar">
+                            <i class="fa-solid fa-paper-plane"></i> Enviar Chamado
+                        </button>
+                    </div>
+
+                    <div id="mensagem" class="mensagem"></div>
+                </form>
+
+                <!-- Nova Seção: Tabela Reativa carregada pelo JS -->
+                <section class="recent-tickets-section">
+                    <h2>Seus Chamados Recentes</h2>
+                    <div class="tickets-table-wrapper">
+                        <table class="tickets-table">
+                            <thead>
+                                <tr>
+                                    <th>Protocolo</th>
+                                    <th>Título</th>
+                                    <th>Data</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaChamadosRecentes">
+                                <!-- O JavaScript vai injetar as linhas aqui -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
             </div>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="descricao">Descrição *</label>
-                    <textarea 
-                        id="descricao" 
-                        name="descricao" 
-                        placeholder="Descreva o problema em detalhes..."
-                        required
-                        maxlength="2000"
-                        rows="5"
-                    ></textarea>
-                </div>
-            </div>
-
-            <div class="form-row-flex">
-                <div class="form-group">
-                    <label for="setorResponsavel">Setor Responsável *</label>
-                    <select id="setorResponsavel" name="setor_responsavel_id" required>
-                        <option value="">Carregando...</option>
-                    </select>
+            <!-- Nova Coluna Lateral (Direita): Informativos fixos -->
+            <aside class="info-sidebar">
+                <!-- Card de Emergência -->
+                <div class="sidebar-card alert-card">
+                    <h3><i class="fa-solid fa-phone-volume"></i> Urgência Crítica?</h3>
+                    <p>Se todo o setor estiver parado ou houver risco iminente de perda de dados, ligue para o ramal <strong>4002</strong>.</p>
                 </div>
 
-                <div class="form-group">
-                    <label for="usuarioResponsavel">Responsável Específico (Opcional)</label>
-                    <select id="usuarioResponsavel" name="usuario_responsavel_id" disabled>
-                        <option value="">Selecione um setor primeiro...</option>
-                    </select>
+                <!-- Card de SLA / Prazos -->
+                <div class="sidebar-card">
+                    <h3><i class="fa-solid fa-stopwatch"></i> Prazos de Atendimento (SLA)</h3>
+                    <ul class="sla-list">
+                        <li>
+                            <span class="sla-priority prio-alta">Alta</span>
+                            <span class="sla-time">Até 4 horas úteis</span>
+                        </li>
+                        <li>
+                            <span class="sla-priority prio-media">Média</span>
+                            <span class="sla-time">Até 24 horas úteis</span>
+                        </li>
+                        <li>
+                            <span class="sla-priority prio-baixa">Baixa</span>
+                            <span class="sla-time">Até 48 horas úteis</span>
+                        </li>
+                    </ul>
                 </div>
 
-                <div class="form-group">
-                    <label for="prioridade">Prioridade *</label>
-                    <select id="prioridade" name="prioridade" required>
-                        <option value="">Selecione...</option>
-                        <option value="Baixa">Baixa</option>
-                        <option value="Média">Média</option>
-                        <option value="Alta">Alta</option>
-                    </select>
+                <!-- Card de Dicas -->
+                <div class="sidebar-card text-card">
+                    <h3><i class="fa-solid fa-lightbulb" style="color: #eab308;"></i> Dicas úteis</h3>
+                    <ul>
+                        <li>Seja o mais específico possível no título.</li>
+                        <li>Anote mensagens de erro exatas apresentadas na tela.</li>
+                        <li>Informe se o problema afeta mais pessoas do setor.</li>
+                    </ul>
                 </div>
-            </div>
+            </aside>
 
-            <div class="form-actions">
-                <button type="submit" class="btn-enviar">Abrir Chamado</button>
-                <button type="reset" class="btn-cancelar">Limpar</button>
-            </div>
-
-            <div id="mensagem" class="mensagem"></div>
-        </form>
+        </div>
     </main>
 </div>
 
