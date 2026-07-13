@@ -176,6 +176,7 @@ def obter_perfil_logado(
         "email": usuario_autenticado.email,
         "matricula": f"#{usuario_autenticado.id}",
         "setor": setor.nome if setor else "Não informado",
+        "setor_id": usuario_autenticado.setor_id,  # Adicionado para identificação no frontend
         "perfil": usuario_autenticado.perfil
     }
 
@@ -309,6 +310,27 @@ def listar_chamados_do_setor(
     chamados = db.query(Chamado).filter(Chamado.setor_responsavel_id == setor_id).order_by(Chamado.data_criacao.asc()).all()
     
     return chamados
+
+@router.get("/setores/{setor_id}/chamados-dashboard")
+def listar_chamados_dashboard(
+    setor_id: int,
+    db: Session = Depends(get_db),
+    usuario_autenticado: Usuario = Depends(get_current_user)
+):
+    from sqlalchemy import or_
+
+    # Garante isolamento para Gestores não visualizarem dados de outros setores
+    if usuario_autenticado.perfil == "Gestor" and usuario_autenticado.setor_id != setor_id:
+        raise HTTPException(status_code=403, detail="Permissão negada ao escopo do setor")
+
+    # Retorna unicamente chamados sem dono OU atribuídos diretamente ao usuário logado
+    return db.query(Chamado).filter(
+        Chamado.setor_responsavel_id == setor_id,
+        or_(
+            Chamado.usuario_responsavel_id == usuario_autenticado.id,
+            Chamado.usuario_responsavel_id == None
+        )
+    ).order_by(Chamado.data_criacao.asc()).all()
 
 @router.put("/setores/{setor_id}")
 def atualizar_setor(
