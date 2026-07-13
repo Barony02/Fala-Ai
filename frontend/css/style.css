@@ -198,6 +198,38 @@ body {
     display: inline-block;
 }
 
+#toast-global-container {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 20000;
+}
+
+.toast-global {
+    background: #0f172a;
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 12px 14px;
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.18);
+    font-weight: 700;
+    font-size: 13px;
+    max-width: 320px;
+    animation: toastIn 0.2s ease-out;
+}
+
+.toast-global.sucesso { background: #16a34a; }
+.toast-global.erro { background: #dc2626; }
+.toast-global.info { background: #0f172a; }
+.toast-global.fade-out { opacity: 0; transform: translateY(8px); transition: all 0.25s ease; }
+
+@keyframes toastIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 [data-theme="dark"] body,
 [data-theme="dark"] .content-area,
 [data-theme="dark"] .content,
@@ -237,6 +269,8 @@ body {
 [data-theme="dark"] .action-card,
 [data-theme="dark"] .note-form-card,
 [data-theme="dark"] .history-card,
+[data-theme="dark"] .report-filters,
+[data-theme="dark"] .summary-card,
 [data-theme="dark"] .tabela-chamados,
 [data-theme="dark"] .tickets-table,
 [data-theme="dark"] .info-block {
@@ -248,6 +282,7 @@ body {
 [data-theme="dark"] .kanban-column,
 [data-theme="dark"] .history-item,
 [data-theme="dark"] .sector-timer-item,
+[data-theme="dark"] .attachment-item,
 [data-theme="dark"] .box-descricao,
 [data-theme="dark"] .box-descricao-preview,
 [data-theme="dark"] th,
@@ -267,6 +302,7 @@ body {
 [data-theme="dark"] .history-item strong,
 [data-theme="dark"] .sector-timer-item strong,
 [data-theme="dark"] .timer-metric b,
+[data-theme="dark"] .summary-card strong,
 [data-theme="dark"] .modal-body p {
     color: var(--app-muted) !important;
     border-color: var(--app-border) !important;
@@ -281,6 +317,11 @@ body {
 [data-theme="dark"] select,
 [data-theme="dark"] .select-action,
 [data-theme="dark"] .transfer-form textarea,
+[data-theme="dark"] .report-filters input,
+[data-theme="dark"] .report-filters select,
+[data-theme="dark"] .rating-form select,
+[data-theme="dark"] .rating-form textarea,
+[data-theme="dark"] .reopen-form textarea,
 [data-theme="dark"] .note-form-card textarea {
     background: #0f172a !important;
     color: var(--app-text) !important;

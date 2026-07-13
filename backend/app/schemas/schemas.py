@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, field_validator
 from typing import Optional
 
 STATUS_VALIDOS = {"Aberto", "Em Atendimento", "Pausado", "Concluído"}
@@ -21,8 +21,16 @@ def normalizar_status(status: Optional[str]) -> Optional[str]:
         return None
     return STATUS_ALIASES.get(status.strip(), status.strip())
 class LoginSchema(BaseModel):
-    email: EmailStr
+    email: str
     senha: str
+
+    @field_validator('email')
+    @classmethod
+    def email_login_valido(cls, v):
+        email = (v or "").strip().lower()
+        if "@" not in email:
+            raise ValueError("Informe um e-mail válido")
+        return email
 
 class SetorSchema(BaseModel):
     nome: str
@@ -30,10 +38,18 @@ class SetorSchema(BaseModel):
 
 class UsuarioCadastroSchema(BaseModel):
     nome: str
-    email: EmailStr
+    email: str
     senha: str
     setor_sigla: str
     perfil: Optional[str] = "Solicitante" # Define como opcional, assumindo "Solicitante" por padrão
+
+    @field_validator('email')
+    @classmethod
+    def email_cadastro_valido(cls, v):
+        email = (v or "").strip().lower()
+        if "@" not in email:
+            raise ValueError("Informe um e-mail válido")
+        return email
     
 class TokenSchema(BaseModel):
     access_token: str
@@ -87,6 +103,37 @@ class TransferenciaSchema(BaseModel):
         if not v or not v.strip():
             raise ValueError("A justificativa é obrigatória")
         return v.strip()
+
+class AvaliacaoChamadoSchema(BaseModel):
+    nota: int
+    comentario: Optional[str] = None
+
+    @field_validator('nota')
+    @classmethod
+    def nota_valida(cls, v):
+        if v < 1 or v > 5:
+            raise ValueError("A nota deve estar entre 1 e 5")
+        return v
+
+    @field_validator('comentario')
+    @classmethod
+    def comentario_limpo(cls, v):
+        if v is None:
+            return None
+        texto = v.strip()
+        return texto or None
+
+
+class ReabrirChamadoSchema(BaseModel):
+    justificativa: str
+
+    @field_validator('justificativa')
+    @classmethod
+    def justificativa_nao_vazia(cls, v):
+        if not v or not v.strip():
+            raise ValueError("A justificativa é obrigatória")
+        return v.strip()
+
 
 class AtualizarPerfilSchema(BaseModel):
     nome: str

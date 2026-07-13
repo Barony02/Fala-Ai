@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatórios Gerenciais</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/relatorios.css">
+    <script src="/js/sidebar.js" defer></script>
+    <script src="/js/relatorios.js" defer></script>
+</head>
+<body>
+<div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+    <main class="content-area">
+        <header class="page-header">
+            <div>
+                <h1>Relatórios Gerenciais</h1>
+                <p>Filtre os chamados e exporte indicadores em PDF ou Excel.</p>
+            </div>
+        </header>
+
+        <section class="report-filters">
+            <label>
+                Data inicial
+                <input id="dataInicio" type="date">
+            </label>
+            <label>
+                Data final
+                <input id="dataFim" type="date">
+            </label>
+            <label>
+                Setor
+                <select id="setorFiltro">
+                    <option value="">Todos os setores</option>
+                </select>
+            </label>
+            <button id="btnAplicarFiltros" type="button">Aplicar Filtros</button>
+            <button id="btnExportarPdf" type="button">PDF</button>
+            <button id="btnExportarXlsx" type="button">Excel</button>
+        </section>
+
+        <section id="cardsResumo" class="summary-grid"></section>
+
+        <section class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Título</th>
+                        <th>Status</th>
+                        <th>Setor</th>
+                        <th>SLA</th>
+                        <th>Resposta</th>
+                        <th>Nota</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaRelatorio">
+                    <tr><td colspan="7">Carregando relatório...</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <div id="mensagemRelatorio" class="mensagem"></div>
+    </main>
+</div>
+</body>
+</html>

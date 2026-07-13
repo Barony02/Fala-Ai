@@ -1,12 +1,12 @@
 from datetime import datetime, timedelta, timezone
+import os
 from typing import Optional
 import jwt
 from fastapi import HTTPException, status
 
-# Chave secreta para assinar o token (altere em produção!)
-SECRET_KEY = "sua-chave-super-secreta-mude-em-producao"
+SECRET_KEY = os.getenv("SECRET_KEY", "fala-ai-local-dev-secret")
 ALGORITHM = "HS256"
-EXPIRE_MINUTES = 30
+EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "120"))
 
 def criar_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     """Cria um token JWT"""

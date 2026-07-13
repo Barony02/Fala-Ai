@@ -39,3 +39,34 @@ O foco é melhorar a eficiência da comunicação interna e permitir uma gestão
 https://github.com/users/Barony02/projects/6/views/1
 
 ---
+
+## Execução local
+
+A aplicação foi organizada para rodar localmente como um monolito: o backend FastAPI serve a API e também os arquivos do frontend.
+
+```bash
+make build
+```
+
+Depois acesse:
+
+```text
+http://localhost:8000
+```
+
+Comandos úteis:
+
+```bash
+make logs      # acompanhar logs
+make tests     # rodar testes automatizados no container
+make load-test # teste simples de carga local com a aplicação rodando
+make backup    # gerar dump SQL local em ./backups
+make down      # parar os serviços
+make reset     # recriar banco e containers do zero
+```
+
+Para agendar backup diário local às 18h:
+
+```bash
+bash scripts/install_backup_cron.sh
+```

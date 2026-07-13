@@ -1,12 +1,15 @@
+import datetime
+import io
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Header
+from fastapi.responses import StreamingResponse
 from app.jwt_config import verificar_token
 from sqlalchemy.orm import Session
 from app.config.database import get_db
 from app.models.models import Setor, Usuario, Chamado
 from app.controllers.auth import get_current_user, get_current_gestor
-from app.controllers.chamado import calcular_sla_chamado, serializar_chamado
+from app.controllers.chamado import calcular_sla_chamado, calcular_tempos_por_setor, serializar_chamado
 from app.controllers.request import abrirChamado
 from app.schemas.schemas import LoginSchema, SetorSchema, PedidoSchema, UsuarioCadastroSchema, normalizar_status
 from app.schemas.schemas import AtualizarPerfilSchema, AlterarSenhaSchema
@@ -73,7 +76,164 @@ def _serializar_chamado_lista(c: Chamado, db: Session) -> dict:
         "usuario_responsavel": usuario_res.nome if usuario_res else "Enviar para todos (Nenhum específico)",
         "usuario_responsavel_id": c.usuario_responsavel_id,
         "sla": calcular_sla_chamado(c),
+        "data_fechamento": c.data_fechamento.isoformat() if c.data_fechamento else None,
+        "avaliacao": {
+            "nota": c.avaliacao_nota,
+            "comentario": c.avaliacao_comentario,
+            "data_avaliacao": c.data_avaliacao.isoformat() if c.data_avaliacao else None,
+        } if c.avaliacao_nota else None,
     }
+
+
+def _parse_data(valor: Optional[str], fim_do_dia: bool = False):
+    if not valor:
+        return None
+    try:
+        data = datetime.datetime.strptime(valor, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Datas devem estar no formato YYYY-MM-DD")
+    if fim_do_dia:
+        return data.replace(hour=23, minute=59, second=59, microsecond=999999)
+    return data
+
+
+def _linhas_relatorio(chamados: list[Chamado], db: Session) -> tuple[list[dict], dict]:
+    ids_setores = {c.setor_responsavel_id for c in chamados} | {c.setor_solicitante_id for c in chamados}
+    ids_usuarios = {c.usuario_solicitante_id for c in chamados}
+    ids_usuarios.update(c.usuario_responsavel_id for c in chamados if c.usuario_responsavel_id)
+    setores = db.query(Setor).filter(Setor.id.in_(ids_setores)).all() if ids_setores else []
+    usuarios = db.query(Usuario).filter(Usuario.id.in_(ids_usuarios)).all() if ids_usuarios else []
+    setores_map = {s.id: s for s in setores}
+    usuarios_map = {u.id: u for u in usuarios}
+
+    linhas = []
+    tempos_resposta = []
+    notas = []
+    atrasados = 0
+
+    for chamado in chamados:
+        sla = calcular_sla_chamado(chamado)
+        tempos_setor = calcular_tempos_por_setor(chamado, db)
+        tempos_validos = [t["tempo_resposta_horas"] for t in tempos_setor if t.get("tempo_resposta_horas") is not None]
+        tempo_resposta = round(sum(tempos_validos) / len(tempos_validos), 2) if tempos_validos else None
+        if tempo_resposta is not None:
+            tempos_resposta.append(tempo_resposta)
+        if chamado.avaliacao_nota:
+            notas.append(chamado.avaliacao_nota)
+        if sla["estado"] == "atrasado":
+            atrasados += 1
+
+        setor_responsavel = setores_map.get(chamado.setor_responsavel_id)
+        setor_solicitante = setores_map.get(chamado.setor_solicitante_id)
+        solicitante = usuarios_map.get(chamado.usuario_solicitante_id)
+        responsavel = usuarios_map.get(chamado.usuario_responsavel_id)
+        linhas.append({
+            "id": chamado.id,
+            "titulo": chamado.titulo,
+            "status": normalizar_status(chamado.status),
+            "prioridade": chamado.prioridade,
+            "setor_solicitante": setor_solicitante.nome if setor_solicitante else "-",
+            "setor_responsavel": setor_responsavel.nome if setor_responsavel else "-",
+            "solicitante": solicitante.nome if solicitante else "-",
+            "responsavel": responsavel.nome if responsavel else "Sem responsável",
+            "data_criacao": chamado.data_criacao.isoformat() if chamado.data_criacao else None,
+            "data_fechamento": chamado.data_fechamento.isoformat() if chamado.data_fechamento else None,
+            "sla_estado": sla["estado"],
+            "sla_percentual": sla["percentual"],
+            "tempo_resposta_horas": tempo_resposta,
+            "avaliacao_nota": chamado.avaliacao_nota,
+            "avaliacao_comentario": chamado.avaliacao_comentario,
+        })
+
+    resumo = {
+        "total": len(chamados),
+        "abertos": sum(1 for c in chamados if normalizar_status(c.status) == "Aberto"),
+        "em_atendimento": sum(1 for c in chamados if normalizar_status(c.status) == "Em Atendimento"),
+        "pausados": sum(1 for c in chamados if normalizar_status(c.status) == "Pausado"),
+        "concluidos": sum(1 for c in chamados if normalizar_status(c.status) == "Concluído"),
+        "atrasados": atrasados,
+        "tempo_medio_resposta_horas": round(sum(tempos_resposta) / len(tempos_resposta), 2) if tempos_resposta else None,
+        "media_avaliacao": round(sum(notas) / len(notas), 2) if notas else None,
+    }
+    return linhas, resumo
+
+
+def _resposta_xlsx(linhas: list[dict], resumo: dict):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Chamados"
+    headers = [
+        "ID", "Titulo", "Status", "Prioridade", "Setor Solicitante", "Setor Responsavel",
+        "Solicitante", "Responsavel", "Criacao", "Fechamento", "SLA", "% SLA",
+        "Tempo Resposta (h)", "Nota", "Comentario Avaliacao"
+    ]
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+    for linha in linhas:
+        ws.append([
+            linha["id"], linha["titulo"], linha["status"], linha["prioridade"],
+            linha["setor_solicitante"], linha["setor_responsavel"], linha["solicitante"],
+            linha["responsavel"], linha["data_criacao"], linha["data_fechamento"],
+            linha["sla_estado"], linha["sla_percentual"], linha["tempo_resposta_horas"],
+            linha["avaliacao_nota"], linha["avaliacao_comentario"],
+        ])
+    ws_resumo = wb.create_sheet("Resumo")
+    for chave, valor in resumo.items():
+        ws_resumo.append([chave, valor])
+    arquivo = io.BytesIO()
+    wb.save(arquivo)
+    arquivo.seek(0)
+    return StreamingResponse(
+        arquivo,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="relatorio-chamados.xlsx"'},
+    )
+
+
+def _resposta_pdf(linhas: list[dict], resumo: dict):
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet
+
+    arquivo = io.BytesIO()
+    doc = SimpleDocTemplate(arquivo, pagesize=landscape(A4), rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24)
+    styles = getSampleStyleSheet()
+    elementos = [Paragraph("Relatório Gerencial de Chamados", styles["Title"]), Spacer(1, 12)]
+    resumo_texto = " | ".join(f"{k}: {v if v is not None else '-'}" for k, v in resumo.items())
+    elementos.append(Paragraph(resumo_texto, styles["Normal"]))
+    elementos.append(Spacer(1, 12))
+    dados = [["ID", "Título", "Status", "Setor", "SLA", "Resp. h", "Nota"]]
+    for linha in linhas[:80]:
+        dados.append([
+            linha["id"],
+            linha["titulo"][:42],
+            linha["status"],
+            linha["setor_responsavel"][:28],
+            linha["sla_estado"],
+            linha["tempo_resposta_horas"] if linha["tempo_resposta_horas"] is not None else "-",
+            linha["avaliacao_nota"] if linha["avaliacao_nota"] is not None else "-",
+        ])
+    tabela = Table(dados, repeatRows=1)
+    tabela.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#cbd5e1")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    elementos.append(tabela)
+    doc.build(elementos)
+    arquivo.seek(0)
+    return StreamingResponse(
+        arquivo,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="relatorio-chamados.pdf"'},
+    )
 
 @router.get("/teste-auth")
 def teste_auth(authorization: str = Header(None)):
@@ -103,8 +263,7 @@ def listar_setores(
 def login(login: LoginSchema, db: Session = Depends(get_db)):
     from app.controllers.auth import autenticar
     from app.jwt_config import criar_access_token
-    from datetime import timedelta
-    
+
     usuario = autenticar(db, login)
 
     if usuario is None:
@@ -112,8 +271,7 @@ def login(login: LoginSchema, db: Session = Depends(get_db)):
 
     # Cria o token com usuario_id e perfil
     access_token = criar_access_token(
-        data={"sub": usuario.id, "perfil": usuario.perfil},
-        expires_delta=timedelta(minutes=30)
+        data={"sub": usuario.id, "perfil": usuario.perfil}
     )
     
     return {
@@ -226,7 +384,8 @@ def listar_usuarios(
             "email": u.email,
             "perfil": u.perfil,
             "setor_id": u.setor_id,
-            "setor_sigla": setor.sigla if setor else ""
+            "setor_sigla": setor.sigla if setor else "",
+            "ativo": u.ativo is not False
         })
     return resultado
 
@@ -317,6 +476,11 @@ def editar_usuario_escopo(
     usuario_alvo.email = payload.get("email", usuario_alvo.email)
     usuario_alvo.perfil = payload.get("perfil", usuario_alvo.perfil)
     usuario_alvo.setor_id = setor_alvo.id
+    if "ativo" in payload:
+        novo_status = bool(payload.get("ativo"))
+        if usuario_alvo.id == usuario_autenticado.id and not novo_status:
+            raise HTTPException(status_code=422, detail="Você não pode inativar o próprio usuário")
+        usuario_alvo.ativo = novo_status
 
     db.commit()
     return {"mensagem": "Usuário atualizado com sucesso"}
@@ -409,6 +573,46 @@ def listar_chamados_dashboard(
         )
     ).order_by(Chamado.data_criacao.asc()).all()
     return [serializar_chamado(c, db, True) for c in chamados]
+
+
+@router.get("/relatorios/gerencial")
+def relatorio_gerencial(
+    data_inicio: Optional[str] = None,
+    data_fim: Optional[str] = None,
+    setor_id: Optional[int] = None,
+    formato: str = "json",
+    db: Session = Depends(get_db),
+    usuario_autenticado: Usuario = Depends(get_current_user)
+):
+    if usuario_autenticado.perfil not in ["Gestor", "Administrador"]:
+        raise HTTPException(status_code=403, detail="Não autorizado")
+
+    inicio = _parse_data(data_inicio)
+    fim = _parse_data(data_fim, fim_do_dia=True)
+    query = db.query(Chamado)
+
+    if inicio:
+        query = query.filter(Chamado.data_criacao >= inicio)
+    if fim:
+        query = query.filter(Chamado.data_criacao <= fim)
+
+    if usuario_autenticado.perfil == "Gestor":
+        query = query.filter(Chamado.setor_responsavel_id == usuario_autenticado.setor_id)
+    elif setor_id:
+        query = query.filter(Chamado.setor_responsavel_id == setor_id)
+
+    chamados = query.order_by(Chamado.data_criacao.desc()).all()
+    linhas, resumo = _linhas_relatorio(chamados, db)
+    formato_normalizado = formato.lower()
+
+    if formato_normalizado == "xlsx":
+        return _resposta_xlsx(linhas, resumo)
+    if formato_normalizado == "pdf":
+        return _resposta_pdf(linhas, resumo)
+    if formato_normalizado != "json":
+        raise HTTPException(status_code=422, detail="Formato inválido. Use json, xlsx ou pdf")
+
+    return {"resumo": resumo, "items": linhas}
 
 @router.put("/setores/{setor_id}")
 def atualizar_setor(

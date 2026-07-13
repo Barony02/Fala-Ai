@@ -7,6 +7,7 @@ const form = document.getElementById("chamadoForm");
 const mensagem = document.getElementById("mensagem");
 const selectResponsavel = document.getElementById("setorResponsavel");
 const selectUsuarioResponsavel = document.getElementById("usuarioResponsavel");
+const inputAnexos = document.getElementById("anexosChamado");
 const STATUS_ALIASES = {
     "Aberto": "Aberto",
     "Em Progresso": "Em Atendimento",
@@ -229,6 +230,11 @@ form.addEventListener("submit", async (e) => {
         const data = await response.json();
 
         if (response.ok) {
+            const arquivos = Array.from(inputAnexos?.files || []);
+            if (arquivos.length) {
+                mostrarMensagem("Chamado aberto. Enviando anexos...", "carregando");
+                await enviarAnexos(data.id, arquivos, token);
+            }
             mostrarMensagem("Chamado aberto com sucesso!", "sucesso");
             form.reset();
             selectUsuarioResponsavel.innerHTML = '<option value="">Selecione um setor primeiro...</option>';
@@ -239,11 +245,30 @@ form.addEventListener("submit", async (e) => {
             mostrarMensagem(data.detail || "Erro ao abrir chamado", "erro");
         }
     } catch (error) {
-        mostrarMensagem("Erro ao conectar com o servidor", "erro");
+        mostrarMensagem(error.message || "Erro ao conectar com o servidor", "erro");
     }
 });
+
+async function enviarAnexos(chamadoId, arquivos, token) {
+    for (const arquivo of arquivos) {
+        const formData = new FormData();
+        formData.append("arquivo", arquivo);
+        const response = await fetch(`${API_URL}/chamados/${chamadoId}/anexos`, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${token}` },
+            body: formData
+        });
+        if (!response.ok) {
+            const erro = await response.json().catch(() => ({}));
+            throw new Error(erro.detail || `Erro ao enviar anexo ${arquivo.name}`);
+        }
+    }
+}
 
 function mostrarMensagem(texto, tipo) {
     mensagem.textContent = texto;
     mensagem.className = `mensagem ${tipo}`;
+    if (texto && window.falaAiToast && tipo !== "carregando") {
+        window.falaAiToast(texto, tipo === "erro" ? "erro" : "sucesso");
+    }
 }

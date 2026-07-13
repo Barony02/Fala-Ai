@@ -37,6 +37,10 @@ class Chamado(Base):
     #usuario_id = Column(Integer, ForeignKey('usuarios.id'), nullable=False)
     data_criacao = Column(DateTime, nullable=False)
     data_atualizacao = Column(DateTime, nullable=False)
+    data_fechamento = Column(DateTime, nullable=True)
+    avaliacao_nota = Column(Integer, nullable=True)
+    avaliacao_comentario = Column(String(1000), nullable=True)
+    data_avaliacao = Column(DateTime, nullable=True)
     
     # Relacionamento com Anexos
     anexos = relationship("Anexo", back_populates="chamado", cascade="all, delete-orphan")
@@ -72,7 +76,7 @@ class HistoricoChamado(Base):
     id = Column(Integer, primary_key=True, index=True)
     chamado_id = Column(Integer, ForeignKey('chamados.id'), nullable=False, index=True)
     usuario_autor_id = Column(Integer, ForeignKey('usuarios.id'), nullable=False)
-    tipo = Column(Enum('Nota', 'Status', 'Prioridade', 'Responsável', 'Transferência'), nullable=False)
+    tipo = Column(String(30), nullable=False)
     comentario = Column(String(1000), nullable=True)  # texto da nota OU justificativa
     valor_anterior = Column(String(50), nullable=True)  # usado em Status/Prioridade/Responsável
     valor_novo = Column(String(50), nullable=True)

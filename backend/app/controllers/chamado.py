@@ -1,13 +1,18 @@
 import datetime
+import os
+import uuid
 from datetime import timezone
 
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from app.models.models import Usuario, Setor, Chamado, HistoricoChamado
+from app.config import EXTENSOES_PERMITIDAS, TAMANHO_MAXIMO_BYTES, UPLOAD_DIR
+from app.models.models import Usuario, Setor, Chamado, HistoricoChamado, Anexo
 from app.schemas.schemas import (
     AtualizarChamadoSchema,
+    AvaliacaoChamadoSchema,
     NotaInternaSchema,
+    ReabrirChamadoSchema,
     TransferenciaSchema,
     STATUS_VALIDOS,
     PRIORIDADES_VALIDAS,
@@ -19,6 +24,9 @@ PRAZOS_SLA_HORAS = {
     "Média": 24,
     "Baixa": 48,
 }
+HORA_UTIL_INICIO = 8
+HORA_UTIL_FIM = 18
+PRAZO_REABERTURA_HORAS_UTEIS = 48
 
 
 def _agora_compativel(referencia=None):
@@ -54,6 +62,39 @@ def _data_no_intervalo(valor, inicio, fim) -> bool:
     valor = _data_compativel(valor, inicio)
     fim = _data_compativel(fim, inicio)
     return inicio <= valor <= fim
+
+
+def _dentro_horario_util(momento: datetime.datetime) -> bool:
+    return momento.weekday() < 5 and HORA_UTIL_INICIO <= momento.hour < HORA_UTIL_FIM
+
+
+def _proximo_horario_util(momento: datetime.datetime) -> datetime.datetime:
+    if momento.weekday() >= 5:
+        dias = 7 - momento.weekday()
+        return (momento + datetime.timedelta(days=dias)).replace(hour=HORA_UTIL_INICIO, minute=0, second=0, microsecond=0)
+    if momento.hour < HORA_UTIL_INICIO:
+        return momento.replace(hour=HORA_UTIL_INICIO, minute=0, second=0, microsecond=0)
+    if momento.hour >= HORA_UTIL_FIM:
+        proximo = momento + datetime.timedelta(days=1)
+        while proximo.weekday() >= 5:
+            proximo += datetime.timedelta(days=1)
+        return proximo.replace(hour=HORA_UTIL_INICIO, minute=0, second=0, microsecond=0)
+    return momento
+
+
+def adicionar_horas_uteis(inicio: datetime.datetime, horas: int) -> datetime.datetime:
+    momento = _proximo_horario_util(inicio)
+    restantes = float(horas)
+    while restantes > 0:
+        momento = _proximo_horario_util(momento)
+        fim_dia = momento.replace(hour=HORA_UTIL_FIM, minute=0, second=0, microsecond=0)
+        horas_disponiveis = max(0.0, (fim_dia - momento).total_seconds() / 3600)
+        consumir = min(restantes, horas_disponiveis)
+        momento += datetime.timedelta(hours=consumir)
+        restantes -= consumir
+        if restantes > 0:
+            momento = _proximo_horario_util(fim_dia + datetime.timedelta(minutes=1))
+    return momento
 
 
 def calcular_sla_chamado(chamado: Chamado) -> dict:
@@ -229,6 +270,10 @@ def serializar_chamado(chamado: Chamado, db: Session, eh_equipe: bool) -> dict:
     usuario_responsavel = None
     if chamado.usuario_responsavel_id:
         usuario_responsavel = db.query(Usuario).filter(Usuario.id == chamado.usuario_responsavel_id).first()
+    data_base_fechamento = chamado.data_fechamento
+    if data_base_fechamento is None and normalizar_status(chamado.status) == "Concluído":
+        data_base_fechamento = chamado.data_atualizacao
+    prazo_reabertura = adicionar_horas_uteis(data_base_fechamento, PRAZO_REABERTURA_HORAS_UTEIS) if data_base_fechamento else None
 
     return {
         "id": chamado.id,
@@ -242,6 +287,13 @@ def serializar_chamado(chamado: Chamado, db: Session, eh_equipe: bool) -> dict:
         "usuario_responsavel_id": chamado.usuario_responsavel_id,
         "data_criacao": chamado.data_criacao.isoformat() if chamado.data_criacao else None,
         "data_atualizacao": chamado.data_atualizacao.isoformat() if chamado.data_atualizacao else None,
+        "data_fechamento": data_base_fechamento.isoformat() if data_base_fechamento else None,
+        "prazo_reabertura": prazo_reabertura.isoformat() if prazo_reabertura else None,
+        "avaliacao": {
+            "nota": chamado.avaliacao_nota,
+            "comentario": chamado.avaliacao_comentario,
+            "data_avaliacao": chamado.data_avaliacao.isoformat() if chamado.data_avaliacao else None,
+        } if chamado.avaliacao_nota else None,
         "setor_solicitante": {
             "id": setor_solicitante.id, "nome": setor_solicitante.nome, "sigla": setor_solicitante.sigla
         } if setor_solicitante else None,
@@ -258,6 +310,7 @@ def serializar_chamado(chamado: Chamado, db: Session, eh_equipe: bool) -> dict:
         "sla": calcular_sla_chamado(chamado),
         "tempos_por_status": calcular_tempos_por_status(chamado, db),
         "tempos_por_setor": calcular_tempos_por_setor(chamado, db),
+        "anexos": listar_anexos_chamado(chamado, db),
     }
 
 
@@ -301,11 +354,13 @@ def atualizar_chamado(usuario: Usuario, chamado: Chamado, dados: AtualizarChamad
         if novo_status == "Concluído" and not usuario_pode_concluir_chamado(usuario, chamado):
             raise HTTPException(status_code=403, detail="Apenas o responsável atribuído, gestor do setor ou administrador podem concluir o chamado")
         if novo_status != normalizar_status(chamado.status):
+            agora = datetime.datetime.now()
             _registrar_historico(
                 db, chamado.id, usuario.id, "Status",
                 comentario=dados.justificativa, valor_anterior=normalizar_status(chamado.status), valor_novo=novo_status,
             )
             chamado.status = novo_status
+            chamado.data_fechamento = agora if novo_status == "Concluído" else None
             algo_mudou = True
 
     if "prioridade" in campos_enviados:
@@ -352,6 +407,134 @@ def criar_nota_interna(usuario: Usuario, chamado: Chamado, dados: NotaInternaSch
     db.commit()
     db.refresh(entrada)
     return {"mensagem": "Nota adicionada com sucesso", "id": entrada.id}
+
+
+def serializar_anexo(anexo: Anexo) -> dict:
+    return {
+        "id": anexo.id,
+        "chamado_id": anexo.chamado_id,
+        "nome_original": anexo.nome_original,
+        "tamanho": anexo.tamanho,
+        "tipo_mime": anexo.tipo_mime,
+        "data_upload": anexo.data_upload.isoformat() if anexo.data_upload else None,
+        "url": f"/api/chamados/{anexo.chamado_id}/anexos/{anexo.id}/download",
+    }
+
+
+def listar_anexos_chamado(chamado: Chamado, db: Session) -> list[dict]:
+    anexos = (
+        db.query(Anexo)
+        .filter(Anexo.chamado_id == chamado.id)
+        .order_by(Anexo.data_upload.asc())
+        .all()
+    )
+    return [serializar_anexo(a) for a in anexos]
+
+
+async def salvar_anexo_chamado(usuario: Usuario, chamado: Chamado, arquivo: UploadFile, db: Session) -> dict:
+    nome_original = os.path.basename(arquivo.filename or "")
+    if not nome_original:
+        raise HTTPException(status_code=422, detail="Arquivo sem nome")
+
+    extensao = os.path.splitext(nome_original)[1].lower()
+    if extensao not in EXTENSOES_PERMITIDAS:
+        raise HTTPException(status_code=422, detail=f"Extensão não permitida. Use: {', '.join(sorted(EXTENSOES_PERMITIDAS))}")
+
+    conteudo = await arquivo.read()
+    if len(conteudo) > TAMANHO_MAXIMO_BYTES:
+        raise HTTPException(status_code=413, detail="Arquivo excede o tamanho máximo permitido")
+
+    pasta_chamado = os.path.join(UPLOAD_DIR, f"chamado_{chamado.id}")
+    os.makedirs(pasta_chamado, exist_ok=True)
+    nome_armazenado = f"{uuid.uuid4().hex}{extensao}"
+    caminho_absoluto = os.path.join(pasta_chamado, nome_armazenado)
+    with open(caminho_absoluto, "wb") as destino:
+        destino.write(conteudo)
+
+    caminho_relativo = os.path.relpath(caminho_absoluto, UPLOAD_DIR)
+    anexo = Anexo(
+        chamado_id=chamado.id,
+        nome_original=nome_original,
+        nome_armazenado=nome_armazenado,
+        caminho=caminho_relativo,
+        tamanho=len(conteudo),
+        tipo_mime=arquivo.content_type or "application/octet-stream",
+        data_upload=datetime.datetime.now(),
+    )
+    db.add(anexo)
+    _registrar_historico(
+        db, chamado.id, usuario.id, "Anexo",
+        comentario=f"Arquivo anexado: {nome_original}",
+    )
+    chamado.data_atualizacao = datetime.datetime.now()
+    db.commit()
+    db.refresh(anexo)
+    return {"mensagem": "Anexo enviado com sucesso", "anexo": serializar_anexo(anexo)}
+
+
+def buscar_anexo_ou_404(chamado: Chamado, anexo_id: int, db: Session) -> Anexo:
+    anexo = db.query(Anexo).filter(Anexo.id == anexo_id, Anexo.chamado_id == chamado.id).first()
+    if anexo is None:
+        raise HTTPException(status_code=404, detail="Anexo não encontrado")
+    return anexo
+
+
+def caminho_absoluto_anexo(anexo: Anexo) -> str:
+    caminho = os.path.join(UPLOAD_DIR, anexo.caminho)
+    if not os.path.exists(caminho):
+        raise HTTPException(status_code=404, detail="Arquivo físico não encontrado")
+    return caminho
+
+
+def reabrir_chamado(usuario: Usuario, chamado: Chamado, dados: ReabrirChamadoSchema, db: Session) -> dict:
+    if usuario.id != chamado.usuario_solicitante_id:
+        raise HTTPException(status_code=403, detail="Apenas o solicitante pode reabrir este chamado")
+    if normalizar_status(chamado.status) != "Concluído":
+        raise HTTPException(status_code=422, detail="Apenas chamados concluídos podem ser reabertos")
+    data_base_fechamento = chamado.data_fechamento or chamado.data_atualizacao
+    if data_base_fechamento is None:
+        raise HTTPException(status_code=422, detail="Chamado sem data de fechamento registrada")
+
+    prazo_limite = adicionar_horas_uteis(data_base_fechamento, PRAZO_REABERTURA_HORAS_UTEIS)
+    agora = _agora_compativel(prazo_limite)
+    if agora > prazo_limite:
+        raise HTTPException(status_code=403, detail="Prazo de reabertura expirado")
+
+    _registrar_historico(
+        db, chamado.id, usuario.id, "Reabertura",
+        comentario=dados.justificativa,
+        valor_anterior="Concluído",
+        valor_novo="Aberto",
+    )
+    chamado.status = "Aberto"
+    chamado.data_fechamento = None
+    chamado.avaliacao_nota = None
+    chamado.avaliacao_comentario = None
+    chamado.data_avaliacao = None
+    chamado.data_atualizacao = datetime.datetime.now()
+    db.commit()
+    return {"mensagem": "Chamado reaberto com sucesso"}
+
+
+def avaliar_chamado(usuario: Usuario, chamado: Chamado, dados: AvaliacaoChamadoSchema, db: Session) -> dict:
+    if usuario.id != chamado.usuario_solicitante_id:
+        raise HTTPException(status_code=403, detail="Apenas o solicitante pode avaliar este chamado")
+    if normalizar_status(chamado.status) != "Concluído":
+        raise HTTPException(status_code=422, detail="Apenas chamados concluídos podem ser avaliados")
+    if chamado.avaliacao_nota is not None:
+        raise HTTPException(status_code=422, detail="Este chamado já foi avaliado")
+
+    chamado.avaliacao_nota = dados.nota
+    chamado.avaliacao_comentario = dados.comentario
+    chamado.data_avaliacao = datetime.datetime.now()
+    chamado.data_atualizacao = datetime.datetime.now()
+    _registrar_historico(
+        db, chamado.id, usuario.id, "Avaliação",
+        comentario=dados.comentario,
+        valor_novo=str(dados.nota),
+    )
+    db.commit()
+    return {"mensagem": "Avaliação registrada com sucesso"}
 
 
 def transferir_chamado(usuario: Usuario, chamado: Chamado, dados: TransferenciaSchema, db: Session) -> dict:

@@ -14,29 +14,22 @@ services:
       - mysql_data:/var/lib/mysql
 
   backend:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: camara_backend
     restart: always
     ports:
       - "8000:8000"
-    # O extra_hosts cria um atalho de rede seguro para o contêiner enxergar a sua máquina nativa
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     environment:
-      - DATABASE_URL=mysql+pymysql://root:senhachamadosmariana@host.docker.internal:3307/camara_chamados
+      - DATABASE_URL=mysql+pymysql://root:senhachamadosmariana@db:3306/camara_chamados
+      - SECRET_KEY=fala-ai-local-dev-secret
+      - ACCESS_TOKEN_EXPIRE_MINUTES=120
     volumes:
       - ./tests:/app/tests
-
-  frontend:
-    image: nginx:alpine
-    container_name: camara_frontend
-    restart: always
-    ports:
-      - "8080:80"
-    volumes:
-      - ./frontend:/usr/share/nginx/html
+      - ./backend/uploads:/app/backend/uploads
     depends_on:
-      - backend
+      - db
 
 volumes:
   mysql_data:

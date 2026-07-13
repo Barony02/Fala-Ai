@@ -122,7 +122,7 @@
 
 .notes-panel {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
     gap: 16px;
     margin-top: 16px;
 }
@@ -210,6 +210,43 @@
 }
 .timer-metric b {
     color: #0f172a;
+    font-size: 12px;
+}
+.attachments-list {
+    max-height: 150px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.attachment-item {
+    border-left: 3px solid #0ea5e9;
+    background: #f8fafc;
+    border-radius: 6px;
+    padding: 8px 10px;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: center;
+    font-size: 12px;
+    color: #334155;
+}
+.attachment-item button {
+    border: none;
+    background: #e0f2fe;
+    color: #0369a1;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.attachment-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+}
+.attachment-form input {
     font-size: 12px;
 }
 

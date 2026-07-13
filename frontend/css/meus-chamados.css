@@ -163,3 +163,88 @@
     font-family: inherit;
     line-height: 1.5;
 }
+
+.modal-section {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.modal-section h3 {
+    margin: 0 0 10px 0;
+    color: #2d3748;
+    font-size: 16px;
+}
+
+.attachments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.attachment-item {
+    background: #f7fafc;
+    border-left: 3px solid #0ea5e9;
+    border-radius: 6px;
+    padding: 8px 10px;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: center;
+    font-size: 13px;
+}
+
+.attachment-item button,
+.attachment-form button,
+.rating-form button,
+.reopen-form button {
+    border: none;
+    background: #0ea5e9;
+    color: #fff;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.attachment-form,
+.rating-form,
+.reopen-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.rating-form select,
+.rating-form textarea,
+.reopen-form textarea {
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 9px;
+    font-family: inherit;
+}
+
+.rating-form textarea,
+.reopen-form textarea {
+    min-height: 68px;
+    resize: vertical;
+}
+
+.current-rating {
+    color: #334155;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.reopen-form button {
+    background: #f59e0b;
+}
+
+.mensagem {
+    margin-top: 12px;
+    font-weight: 700;
+}
+
+.mensagem.sucesso { color: #16a34a; }
+.mensagem.erro { color: #dc2626; }

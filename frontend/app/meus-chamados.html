@@ -70,6 +70,38 @@
                 <p><strong>Descrição detalhada:</strong></p>
                 <div id="modalDescricao" class="box-descricao"></div>
             </div>
+            <div class="modal-section">
+                <h3>Anexos</h3>
+                <div id="modalAnexos" class="attachments-list"></div>
+                <div class="attachment-form">
+                    <input id="inputAnexoSolicitante" type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xlsx,.txt">
+                    <button id="btnEnviarAnexoSolicitante" type="button">Enviar Anexo</button>
+                </div>
+            </div>
+            <div id="acoesConclusao" class="modal-section conclusion-actions">
+                <h3>Encerramento</h3>
+                <div id="avaliacaoAtual" class="current-rating"></div>
+                <div id="formAvaliacao" class="rating-form">
+                    <label for="selectNota">Avaliação do atendimento</label>
+                    <select id="selectNota">
+                        <option value="">Selecione a nota...</option>
+                        <option value="5">5 - Excelente</option>
+                        <option value="4">4 - Bom</option>
+                        <option value="3">3 - Regular</option>
+                        <option value="2">2 - Ruim</option>
+                        <option value="1">1 - Muito ruim</option>
+                    </select>
+                    <textarea id="comentarioAvaliacao" placeholder="Comentário opcional"></textarea>
+                    <button id="btnAvaliarChamado" type="button">Enviar Avaliação</button>
+                </div>
+                <div id="formReabertura" class="reopen-form">
+                    <label for="justificativaReabertura">Reabrir chamado</label>
+                    <textarea id="justificativaReabertura" placeholder="Explique por que o problema ainda não foi resolvido"></textarea>
+                    <button id="btnReabrirChamado" type="button">Reabrir Chamado</button>
+                    <small id="prazoReabertura"></small>
+                </div>
+            </div>
+            <div id="modalMensagem" class="mensagem"></div>
         </div>
     </div>
 </div>

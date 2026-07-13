@@ -24,6 +24,9 @@ const getToken = () => localStorage.getItem("token") || localStorage.getItem("ac
 const normalizarStatus = (status) => STATUS_ALIASES[status] || status || "Aberto";
 
 function mostrarMensagemDashboard(texto, tipo = "info") {
+    if (texto && window.falaAiToast) {
+        window.falaAiToast(texto, tipo);
+    }
     const modalMensagem = document.getElementById("modalMensagem");
     if (!modalMensagem) {
         alert(texto);
@@ -229,6 +232,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             if (modal) modal.style.display = "block";
             renderizarTemposSetor(chamadoSelecionado.tempos_por_setor || []);
+            renderizarAnexos(chamadoSelecionado.anexos || []);
             await carregarHistorico(id);
         } catch (e) { console.error(e); }
     }
@@ -291,6 +295,63 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         } catch (e) {
             lista.innerHTML = '<div class="history-item">Não foi possível carregar o histórico.</div>';
+        }
+    }
+
+    function formatarTamanho(bytes) {
+        if (!bytes) return "0 KB";
+        if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    function renderizarAnexos(anexos) {
+        const lista = document.getElementById("listaAnexos");
+        if (!lista) return;
+        if (!anexos.length) {
+            lista.innerHTML = '<div class="attachment-item">Nenhum anexo enviado.</div>';
+            return;
+        }
+        lista.innerHTML = "";
+        anexos.forEach(anexo => {
+            const div = document.createElement("div");
+            div.className = "attachment-item";
+            div.innerHTML = `
+                <span>${anexo.nome_original}<br><small>${formatarTamanho(anexo.tamanho)}</small></span>
+                <button type="button" data-anexo-id="${anexo.id}">Baixar</button>
+            `;
+            div.querySelector("button").addEventListener("click", () => baixarAnexo(anexo));
+            lista.appendChild(div);
+        });
+    }
+
+    async function baixarAnexo(anexo) {
+        const res = await fetch(`${API_URL}/chamados/${chamadoSelecionado.id}/anexos/${anexo.id}/download`, {
+            headers: { "Authorization": `Bearer ${getToken()}` }
+        });
+        if (!res.ok) {
+            mostrarMensagemModal("Não foi possível baixar o anexo.", "erro");
+            return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = anexo.nome_original;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    }
+
+    async function recarregarChamadoSelecionado() {
+        const res = await fetch(`${API_URL}/chamados/${chamadoSelecionado.id}`, {
+            headers: { "Authorization": `Bearer ${getToken()}` }
+        });
+        if (res.ok) {
+            chamadoSelecionado = await res.json();
+            renderizarAnexos(chamadoSelecionado.anexos || []);
+            renderizarTemposSetor(chamadoSelecionado.tempos_por_setor || []);
+            await carregarHistorico(chamadoSelecionado.id);
         }
     }
 
@@ -386,6 +447,34 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         } catch (e) {
             mostrarMensagemModal("Erro ao salvar nota interna.", "erro");
+        }
+    });
+
+    document.getElementById("btnEnviarAnexo")?.addEventListener("click", async () => {
+        if (!chamadoSelecionado) return;
+        const input = document.getElementById("inputAnexoModal");
+        const arquivo = input?.files?.[0];
+        if (!arquivo) {
+            mostrarMensagemModal("Selecione um arquivo para anexar.", "erro");
+            return;
+        }
+        const formData = new FormData();
+        formData.append("arquivo", arquivo);
+        try {
+            const res = await fetch(`${API_URL}/chamados/${chamadoSelecionado.id}/anexos`, {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${token}` },
+                body: formData
+            });
+            if (res.ok) {
+                input.value = "";
+                mostrarMensagemModal("Anexo enviado.", "sucesso");
+                await recarregarChamadoSelecionado();
+            } else {
+                mostrarMensagemModal((await res.json()).detail || "Erro ao enviar anexo", "erro");
+            }
+        } catch (e) {
+            mostrarMensagemModal("Erro ao enviar anexo.", "erro");
         }
     });
 

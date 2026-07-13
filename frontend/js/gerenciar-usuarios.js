@@ -14,7 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     let listaUsuariosOriginal = [];
-    let direcaoOrdenacao = { id: true, nome: true, email: true, perfil: true, setor_sigla: true };
+    let direcaoOrdenacao = { id: true, nome: true, email: true, perfil: true, setor_sigla: true, ativo: true };
     let colunaAtiva = '';
 
     const modal = document.getElementById("modalForm");
@@ -144,6 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 user.nome.toLowerCase().includes(termo) ||
                 user.email.toLowerCase().includes(termo) ||
                 user.perfil.toLowerCase().includes(termo) ||
+                (user.ativo ? "ativo" : "inativo").includes(termo) ||
                 (user.setor_sigla && user.setor_sigla.toLowerCase().includes(termo))
             );
         });
@@ -161,8 +162,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 <td>${user.email}</td>
                 <td>${user.perfil}</td>
                 <td>${user.setor_sigla || "—"}</td>
+                <td>${user.ativo ? "Ativo" : "Inativo"}</td>
                 <td>
                     <button class="btn-edit" data-id="${user.id}" data-nome="${user.nome}" data-email="${user.email}" data-perfil="${user.perfil}" data-setor="${user.setor_sigla}">Editar</button>
+                    <button class="btn-toggle-active" data-id="${user.id}" data-ativo="${user.ativo}" data-setor="${user.setor_sigla}">${user.ativo ? "Inativar" : "Reativar"}</button>
                 </td>
             `;
             tabelaUsuarios.appendChild(tr);
@@ -170,6 +173,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         document.querySelectorAll(".btn-edit").forEach(btn => {
             btn.addEventListener("click", (e) => abrirModal(e.target.dataset));
+        });
+        document.querySelectorAll(".btn-toggle-active").forEach(btn => {
+            btn.addEventListener("click", (e) => alternarStatusUsuario(e.target.dataset));
         });
     }
 
@@ -237,6 +243,36 @@ document.addEventListener("DOMContentLoaded", () => {
             exibirMensagem("Falha ao salvar dados.", "var(--danger)");
         }
     });
+
+    async function alternarStatusUsuario(dados) {
+        const usuario = listaUsuariosOriginal.find(u => String(u.id) === String(dados.id));
+        if (!usuario) return;
+        const novoStatus = !(dados.ativo === "true");
+        const payload = {
+            nome: usuario.nome,
+            email: usuario.email,
+            perfil: usuario.perfil,
+            setor_sigla: usuario.setor_sigla,
+            ativo: novoStatus
+        };
+
+        try {
+            const response = await fetch(`http://localhost:8000/api/usuarios/${usuario.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json().catch(() => ({}));
+            if (response.ok) {
+                exibirMensagem(novoStatus ? "Usuário reativado." : "Usuário inativado.", "var(--success)");
+                carregarUsuarios();
+            } else {
+                exibirMensagem(data.detail || "Erro ao atualizar status.", "var(--danger)");
+            }
+        } catch (error) {
+            exibirMensagem("Falha ao atualizar status.", "var(--danger)");
+        }
+    }
 
     function exibirMensagem(texto, cor) {
         const msg = document.getElementById("mensagem");

@@ -33,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const closeButton = document.querySelector(".close-button");
     
     let chamadosLista = []; // Guarda os dados vindos do banco
+    let chamadoSelecionado = null;
     let paginaAtual = 1;
     let totalPaginas = 1;
     const itensPorPagina = 10;
@@ -109,16 +110,27 @@ document.addEventListener("DOMContentLoaded", () => {
         btnNextPage.disabled = paginaAtual >= totalPaginas;
     }
 
-    function abrirDetalhesModal(id) {
-        const chamado = chamadosLista.find(c => c.id === id);
-        if (!chamado) return;
+    async function abrirDetalhesModal(id) {
+        try {
+            const response = await fetch(`${API_URL}/chamados/${id}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error("Erro ao carregar chamado");
+            chamadoSelecionado = await response.json();
+        } catch (e) {
+            const chamado = chamadosLista.find(c => c.id === id);
+            if (!chamado) return;
+            chamadoSelecionado = chamado;
+        }
+
+        const chamado = chamadoSelecionado;
 
         // Injeta os dados no modal
         document.getElementById("modalId").textContent = chamado.id;
         document.getElementById("modalTitulo").textContent = chamado.titulo;
         document.getElementById("modalPrioridade").textContent = chamado.prioridade;
-        document.getElementById("modalSetor").textContent = chamado.setor_responsavel;
-        document.getElementById("modalResponsavel").textContent = chamado.usuario_responsavel;
+        document.getElementById("modalSetor").textContent = chamado.setor_responsavel?.nome || chamado.setor_responsavel || "Não informado";
+        document.getElementById("modalResponsavel").textContent = chamado.usuario_responsavel?.nome || chamado.usuario_responsavel || "Enviar para todos (Nenhum específico)";
         document.getElementById("modalDescricao").textContent = chamado.descricao;
         
         const dataCompleta = chamado.data_criacao 
@@ -136,8 +148,103 @@ document.addEventListener("DOMContentLoaded", () => {
         if (statusNormalizado === 'Pausado') statusSpan.classList.add('status-pausado');
         if (statusNormalizado === 'Concluído') statusSpan.classList.add('status-fechado');
 
+        renderizarAnexos(chamado.anexos || []);
+        configurarAcoesConclusao(chamado);
+
         // Exibe o modal
         modal.style.display = "block";
+    }
+
+    function mostrarMensagemModal(texto, tipo = "sucesso") {
+        if (texto && window.falaAiToast) {
+            window.falaAiToast(texto, tipo);
+        }
+        const el = document.getElementById("modalMensagem");
+        if (!el) return;
+        el.textContent = texto;
+        el.className = `mensagem ${tipo}`;
+        setTimeout(() => {
+            el.textContent = "";
+            el.className = "mensagem";
+        }, 4000);
+    }
+
+    function formatarTamanho(bytes) {
+        if (!bytes) return "0 KB";
+        if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    function renderizarAnexos(anexos) {
+        const lista = document.getElementById("modalAnexos");
+        if (!lista) return;
+        if (!anexos.length) {
+            lista.innerHTML = '<div class="attachment-item">Nenhum anexo enviado.</div>';
+            return;
+        }
+        lista.innerHTML = "";
+        anexos.forEach(anexo => {
+            const div = document.createElement("div");
+            div.className = "attachment-item";
+            div.innerHTML = `
+                <span>${anexo.nome_original}<br><small>${formatarTamanho(anexo.tamanho)}</small></span>
+                <button type="button">Baixar</button>
+            `;
+            div.querySelector("button").addEventListener("click", () => baixarAnexo(anexo));
+            lista.appendChild(div);
+        });
+    }
+
+    async function baixarAnexo(anexo) {
+        const response = await fetch(`${API_URL}/chamados/${chamadoSelecionado.id}/anexos/${anexo.id}/download`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) {
+            mostrarMensagemModal("Não foi possível baixar o anexo.", "erro");
+            return;
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = anexo.nome_original;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    }
+
+    function configurarAcoesConclusao(chamado) {
+        const statusNormalizado = normalizarStatus(chamado.status);
+        const bloco = document.getElementById("acoesConclusao");
+        const avaliacaoAtual = document.getElementById("avaliacaoAtual");
+        const formAvaliacao = document.getElementById("formAvaliacao");
+        const formReabertura = document.getElementById("formReabertura");
+        const prazoEl = document.getElementById("prazoReabertura");
+        if (!bloco) return;
+
+        bloco.style.display = statusNormalizado === "Concluído" ? "block" : "none";
+        if (statusNormalizado !== "Concluído") return;
+
+        if (chamado.avaliacao) {
+            avaliacaoAtual.textContent = `Avaliado com nota ${chamado.avaliacao.nota}/5${chamado.avaliacao.comentario ? ` - ${chamado.avaliacao.comentario}` : ""}`;
+            formAvaliacao.style.display = "none";
+        } else {
+            avaliacaoAtual.textContent = "";
+            formAvaliacao.style.display = "flex";
+        }
+
+        const prazo = chamado.prazo_reabertura ? new Date(chamado.prazo_reabertura) : null;
+        const dentroPrazo = prazo && new Date() <= prazo;
+        formReabertura.style.display = dentroPrazo ? "flex" : "none";
+        prazoEl.textContent = prazo
+            ? `Prazo para reabertura: ${prazo.toLocaleString("pt-BR")}`
+            : "";
+    }
+
+    async function recarregarChamadoSelecionado() {
+        if (!chamadoSelecionado) return;
+        await abrirDetalhesModal(chamadoSelecionado.id);
     }
 
     // Fechar modal ao clicar no (X) ou fora dele
@@ -160,6 +267,78 @@ document.addEventListener("DOMContentLoaded", () => {
         if (paginaAtual < totalPaginas) {
             paginaAtual++;
             carregarChamados();
+        }
+    });
+
+    document.getElementById("btnEnviarAnexoSolicitante")?.addEventListener("click", async () => {
+        if (!chamadoSelecionado) return;
+        const input = document.getElementById("inputAnexoSolicitante");
+        const arquivo = input?.files?.[0];
+        if (!arquivo) {
+            mostrarMensagemModal("Selecione um arquivo para enviar.", "erro");
+            return;
+        }
+        const formData = new FormData();
+        formData.append("arquivo", arquivo);
+        const response = await fetch(`${API_URL}/chamados/${chamadoSelecionado.id}/anexos`, {
+            method: "POST",
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: formData
+        });
+        if (response.ok) {
+            input.value = "";
+            mostrarMensagemModal("Anexo enviado.", "sucesso");
+            await recarregarChamadoSelecionado();
+        } else {
+            const erro = await response.json().catch(() => ({}));
+            mostrarMensagemModal(erro.detail || "Erro ao enviar anexo.", "erro");
+        }
+    });
+
+    document.getElementById("btnAvaliarChamado")?.addEventListener("click", async () => {
+        if (!chamadoSelecionado) return;
+        const nota = parseInt(document.getElementById("selectNota").value, 10);
+        const comentario = document.getElementById("comentarioAvaliacao").value.trim();
+        if (!nota) {
+            mostrarMensagemModal("Selecione uma nota para avaliar.", "erro");
+            return;
+        }
+        const response = await fetch(`${API_URL}/chamados/${chamadoSelecionado.id}/avaliacao`, {
+            method: "POST",
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nota, comentario })
+        });
+        if (response.ok) {
+            document.getElementById("selectNota").value = "";
+            document.getElementById("comentarioAvaliacao").value = "";
+            mostrarMensagemModal("Avaliação registrada.", "sucesso");
+            await recarregarChamadoSelecionado();
+        } else {
+            const erro = await response.json().catch(() => ({}));
+            mostrarMensagemModal(erro.detail || "Erro ao avaliar chamado.", "erro");
+        }
+    });
+
+    document.getElementById("btnReabrirChamado")?.addEventListener("click", async () => {
+        if (!chamadoSelecionado) return;
+        const justificativa = document.getElementById("justificativaReabertura").value.trim();
+        if (!justificativa) {
+            mostrarMensagemModal("Informe a justificativa da reabertura.", "erro");
+            return;
+        }
+        const response = await fetch(`${API_URL}/chamados/${chamadoSelecionado.id}/reabrir`, {
+            method: "POST",
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ justificativa })
+        });
+        if (response.ok) {
+            document.getElementById("justificativaReabertura").value = "";
+            mostrarMensagemModal("Chamado reaberto.", "sucesso");
+            await carregarChamados();
+            await recarregarChamadoSelecionado();
+        } else {
+            const erro = await response.json().catch(() => ({}));
+            mostrarMensagemModal(erro.detail || "Erro ao reabrir chamado.", "erro");
         }
     });
     carregarChamados();

@@ -8,12 +8,34 @@ function aplicarTemaSalvo() {
 
 aplicarTemaSalvo();
 
+function garantirToastContainer() {
+    let container = document.getElementById("toast-global-container");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "toast-global-container";
+        document.body.appendChild(container);
+    }
+    return container;
+}
+
+window.falaAiToast = function (mensagem, tipo = "info") {
+    const container = garantirToastContainer();
+    const toast = document.createElement("div");
+    toast.className = `toast-global ${tipo}`;
+    toast.textContent = mensagem;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add("fade-out");
+        setTimeout(() => toast.remove(), 250);
+    }, 3500);
+};
+
 function carregarSidebar() {
     if (!container) return;
 
     const sidebarCache = sessionStorage.getItem('sidebar_html');
     
-    if (sidebarCache && sidebarCache.includes("btn-theme-toggle")) {
+    if (sidebarCache && sidebarCache.includes("btn-theme-toggle") && sidebarCache.includes("relatorios.html")) {
         montarSidebar(sidebarCache);
     } else {
         fetch('/components/sidebar.html')

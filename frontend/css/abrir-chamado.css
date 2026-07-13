@@ -182,6 +182,17 @@
     background-color: #f1f5f9;
 }
 
+.field-hint {
+    color: #64748b;
+    font-size: 12px;
+    margin-top: 2px;
+}
+
+input[type="file"] {
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
 /* ===== Ações/Botões ===== */
 .form-actions {
     display: flex;
