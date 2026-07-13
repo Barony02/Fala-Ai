@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Atendimento</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/dashboard.css">
+    <script src="/js/sidebar.js" defer></script>
+    <script src="/js/dashboard.js" defer></script>
+</head>
+<body>
+
+<div class="dashboard-layout">
+    <div id="sidebar-container"></div>
+
+    <main class="content-area">
+        <header class="header-title">
+            <h1><i class="fa-solid fa-chalkboard-user" style="color: #06b6d4; margin-right: 10px;"></i>Painel de Atendimento</h1>
+            <p>Arraste e solte os chamados entre as colunas para atualizar o status instantaneamente.</p>
+        </header>
+
+        <div class="toolbar-container">
+            <!-- Barra de Busca removida daqui -->
+            <div class="filter-tabs">
+                <button class="tab-btn active" data-filter="todos">Todos do Setor</button>
+                <button class="tab-btn" data-filter="disponiveis">Disponíveis (Sem Técnico)</button>
+                <button class="tab-btn" data-filter="meus">Atribuídos a Mim</button>
+            </div>
+        </div>
+
+        <div class="kanban-board">
+            <div class="kanban-column" data-status="Aberto" ondragover="allowDrop(event)" ondrop="drop(event)">
+                <div class="column-header status-aberto">
+                    <h3>Aberto <span class="count-badge" id="count-Aberto">0</span></h3>
+                </div>
+                <div class="kanban-cards-container" id="cards-Aberto"></div>
+            </div>
+
+            <div class="kanban-column" data-status="Em Progresso" ondragover="allowDrop(event)" ondrop="drop(event)">
+                <div class="column-header status-progresso">
+                    <h3>Em Progresso <span class="count-badge" id="count-Progresso">0</span></h3>
+                </div>
+                <div class="kanban-cards-container" id="cards-Progresso"></div>
+            </div>
+
+            <div class="kanban-column" data-status="Fechado" ondragover="allowDrop(event)" ondrop="drop(event)">
+                <div class="column-header status-fechado">
+                    <h3>Fechado <span class="count-badge" id="count-Fechado">0</span></h3>
+                </div>
+                <div class="kanban-cards-container" id="cards-Fechado"></div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div id="actionModal" class="modal">
+    <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <header class="modal-header">
+            <h2><i class="fa-solid fa-sliders" style="color: #06b6d4;"></i> Gerenciar Chamado #<span id="modalId"></span></h2>
+        </header>
+        <div class="modal-body">
+            <div class="info-block">
+                <label>Assunto</label>
+                <h3 id="modalTitulo"></h3>
+                <label style="margin-top: 12px;">Descrição do Problema</label>
+                <div id="modalDescricao" class="box-descricao-preview"></div>
+                
+                <div class="modal-meta-grid">
+                    <div><label><i class="fa-solid fa-user-pen"></i> Solicitante</label><span id="modalSolicitante">-</span></div>
+                    <div><label><i class="fa-solid fa-building"></i> Setor Origem</label><span id="modalSetorOrigem">-</span></div>
+                    <div><label><i class="fa-solid fa-user-shield"></i> Técnico Responsável</label><span id="modalResponsavel">-</span></div>
+                    <div><label><i class="fa-solid fa-clock"></i> Status Atual</label><span id="modalStatusAtual" class="status-indicator">-</span></div>
+                    <div><label><i class="fa-solid fa-calendar-plus"></i> Data de Criação</label><span id="modalDataCriacao">-</span></div>
+                    <div><label><i class="fa-solid fa-calendar-check"></i> Última Atualização</label><span id="modalDataAtualizacao">-</span></div>
+                </div>
+            </div>
+
+            <div class="actions-panel-grid">
+                <div class="action-card">
+                    <h4><i class="fa-solid fa-user-gear"></i> Responsável</h4>
+                    <p class="action-desc">Gerencie a sua atribuição neste chamado.</p>
+                    <button id="btnAtribuir" class="btn-action btn-primary">Assumir Chamado</button>
+                </div>
+                <div class="action-card">
+                    <h4><i class="fa-solid fa-right-left"></i> Transferir para outro Setor</h4>
+                    <p class="action-desc">Envie o escopo deste chamado para outra equipe.</p>
+                    <div class="transfer-form">
+                        <select id="selectSetorDestino" class="select-action">
+                            <option value="">Selecione o setor de destino...</option>
+                        </select>
+                        <textarea id="txtJustificativaTransferencia" placeholder="Digite a justificativa..."></textarea>
+                        <button id="btnTransferir" class="btn-action btn-outline">Transferir Chamado</button>
+                    </div>
+                </div>
+            </div>
+            <div id="modalMensagem" class="mensagem" style="margin-top: 15px;"></div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
