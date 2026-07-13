@@ -28,8 +28,6 @@ def usuario_pode_gerenciar_chamado(usuario: Usuario, chamado: Chamado) -> bool:
         return True
     if usuario.id == chamado.usuario_responsavel_id:
         return True
-    if chamado.usuario_responsavel_id is None and usuario.setor_id == chamado.setor_responsavel_id:
-        return True
     return False
 
 
@@ -95,7 +93,7 @@ def _registrar_historico(
         setor_origem_id=setor_origem_id,
         setor_destino_id=setor_destino_id,
         visivel_solicitante=visivel_solicitante,
-        data_criacao=datetime.datetime.now(),
+        data_criacao=datetime.datetime.now(timezone.utc),
     )
     db.add(entrada)
     return entrada
@@ -156,7 +154,8 @@ def atualizar_chamado(usuario: Usuario, chamado: Chamado, dados: AtualizarChamad
             algo_mudou = True
 
     if algo_mudou:
-        chamado.data_atualizacao = datetime.datetime.now()
+        chamado.data_atualizacao = datetime.datetime.now(timezone.utc)
+
     db.commit()
     return {"mensagem": "Chamado atualizado com sucesso"}
 
@@ -186,12 +185,14 @@ def transferir_chamado(usuario: Usuario, chamado: Chamado, dados: TransferenciaS
         setor_origem_id=setor_origem_id, setor_destino_id=setor_destino.id,
     )
 
+    # A pessoa atribuída pertencia ao setor antigo; não faz sentido continuar responsável no setor novo.
     chamado.setor_responsavel_id = setor_destino.id
     chamado.usuario_responsavel_id = None
-    chamado.data_atualizacao = datetime.datetime.now()  # Ajustado aqui dentro da função
+    chamado.data_atualizacao = datetime.datetime.now(timezone.utc)
 
     db.commit()
     return {"mensagem": "Chamado transferido com sucesso"}
+
 
 def listar_historico_chamado(chamado: Chamado, eh_equipe: bool, db: Session) -> list:
     query = db.query(HistoricoChamado).filter(HistoricoChamado.chamado_id == chamado.id)
