@@ -95,6 +95,7 @@ th {
 }
 .badge-aberto { background-color: #eff6ff; color: var(--primary-color); }
 .badge-progresso { background-color: #fffbeb; color: var(--warning); }
+.badge-pausado { background-color: #ede9fe; color: #7c3aed; }
 .badge-fechado { background-color: #ecfdf5; color: var(--success); }
 
 /* Seção de detalhes oculta */

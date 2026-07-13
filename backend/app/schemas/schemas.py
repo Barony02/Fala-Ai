@@ -1,8 +1,25 @@
 from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional
 
-STATUS_VALIDOS = {"Aberto", "Em Progresso", "Fechado"}
+STATUS_VALIDOS = {"Aberto", "Em Atendimento", "Pausado", "Concluído"}
+STATUS_ALIASES = {
+    "Aberto": "Aberto",
+    "Em Progresso": "Em Atendimento",
+    "Em Andamento": "Em Atendimento",
+    "Em Atendimento": "Em Atendimento",
+    "Pausado": "Pausado",
+    "Fechado": "Concluído",
+    "Concluido": "Concluído",
+    "Concluído": "Concluído",
+    "Resolvido": "Concluído",
+}
 PRIORIDADES_VALIDAS = {"Baixa", "Média", "Alta"}
+
+
+def normalizar_status(status: Optional[str]) -> Optional[str]:
+    if status is None:
+        return None
+    return STATUS_ALIASES.get(status.strip(), status.strip())
 class LoginSchema(BaseModel):
     email: EmailStr
     senha: str

@@ -7,6 +7,18 @@ const form = document.getElementById("chamadoForm");
 const mensagem = document.getElementById("mensagem");
 const selectResponsavel = document.getElementById("setorResponsavel");
 const selectUsuarioResponsavel = document.getElementById("usuarioResponsavel");
+const STATUS_ALIASES = {
+    "Aberto": "Aberto",
+    "Em Progresso": "Em Atendimento",
+    "Em Andamento": "Em Atendimento",
+    "Em Atendimento": "Em Atendimento",
+    "Pausado": "Pausado",
+    "Fechado": "Concluído",
+    "Concluido": "Concluído",
+    "Concluído": "Concluído",
+    "Resolvido": "Concluído"
+};
+const normalizarStatus = (status) => STATUS_ALIASES[status] || status || "Aberto";
 
 document.addEventListener("DOMContentLoaded", () => {
     const token = localStorage.getItem("token");
@@ -107,19 +119,21 @@ async function carregarChamadosRecentes() {
 
             // Define a classe do badge com base no status vindo do banco
             let badgeClass = "badge-analise";
-            const statusNormalizado = chamado.status ? chamado.status.toLowerCase() : "";
-            
-            if (statusNormalizado === "resolvido" || statusNormalizado === "fechado" || statusNormalizado === "concluído") {
+            const statusNormalizado = normalizarStatus(chamado.status);
+
+            if (statusNormalizado === "Concluído") {
                 badgeClass = "badge-resolvido";
-            } else if (statusNormalizado === "em progresso" || statusNormalizado === "em andamento" || statusNormalizado === "atendimento") {
+            } else if (statusNormalizado === "Em Atendimento") {
                 badgeClass = "badge-andamento";
+            } else if (statusNormalizado === "Pausado") {
+                badgeClass = "badge-pausado";
             }
 
             tr.innerHTML = `
                 <td>#${chamado.id}</td>
                 <td class="td-truncate" title="${chamado.titulo}">${chamado.titulo}</td>
                 <td>${dataFormatada}</td>
-                <td><span class="status-badge ${badgeClass}">${chamado.status || 'Aberto'}</span></td>
+                <td><span class="status-badge ${badgeClass}">${statusNormalizado}</span></td>
             `;
             tabelaBody.appendChild(tr);
         });

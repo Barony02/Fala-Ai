@@ -32,7 +32,7 @@ class Chamado(Base):
     usuario_solicitante_id = Column(Integer, ForeignKey('usuarios.id'), nullable=False)
     setor_responsavel_id = Column(Integer, ForeignKey('setores.id'), nullable=False)
     usuario_responsavel_id = Column(Integer, ForeignKey('usuarios.id'), nullable=True)
-    status = Column(Enum('Aberto', 'Em Progresso', 'Fechado'), default='Aberto')
+    status = Column(String(30), default='Aberto')
     prioridade = Column(Enum('Baixa', 'Média', 'Alta'), default='Média')
     #usuario_id = Column(Integer, ForeignKey('usuarios.id'), nullable=False)
     data_criacao = Column(DateTime, nullable=False)

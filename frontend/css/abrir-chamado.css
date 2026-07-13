@@ -376,6 +376,7 @@
 .badge-analise { background-color: #eff6ff; color: #1d4ed8; }
 .badge-resolvido { background-color: #ecfdf5; color: #047857; }
 .badge-andamento { background-color: #fffbeb; color: #b45309; }
+.badge-pausado { background-color: #ede9fe; color: #7c3aed; }
 @media (max-width: 1100px) {
     .page-grid {
         grid-template-columns: 1fr;

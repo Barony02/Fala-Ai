@@ -61,7 +61,31 @@
 }
 .status-aberto { background-color: #fef3c7; color: #d97706; }
 .status-progresso { background-color: #dbeafe; color: #2563eb; }
+.status-pausado { background-color: #ede9fe; color: #7c3aed; }
 .status-fechado { background-color: #dcfce7; color: #16a34a; }
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.pagination-controls button {
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #334155;
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.pagination-controls button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
 
 /* Estrutura do Modal Oculto por padrão */
 .modal {

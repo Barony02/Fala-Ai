@@ -63,6 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <td>${s.total_funcionarios}</td>
                     <td><span class="badge badge-aberto">${s.chamados_abertos}</span></td>
                     <td><span class="badge badge-progresso">${s.chamados_andamento}</span></td>
+                    <td><span class="badge badge-pausado">${s.chamados_pausados || 0}</span></td>
                     <td><span class="badge badge-fechado">${s.chamados_fechados}</span></td>
                     <td>
                         <button class="btn-edit-setor" data-id="${s.id}" data-nome="${s.nome}" data-sigla="${s.sigla}" ${perfilLogado === 'Gestor' ? 'disabled' : ''}>Editar</button>

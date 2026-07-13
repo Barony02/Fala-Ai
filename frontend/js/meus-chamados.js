@@ -1,6 +1,18 @@
-const API_URL = window.location.hostname === 'localhost' 
+const API_URL = window.location.hostname === 'localhost'
     ? "http://localhost:8000/api"
     : `${window.location.protocol}//${window.location.hostname}:8000/api`;
+const STATUS_ALIASES = {
+    "Aberto": "Aberto",
+    "Em Progresso": "Em Atendimento",
+    "Em Andamento": "Em Atendimento",
+    "Em Atendimento": "Em Atendimento",
+    "Pausado": "Pausado",
+    "Fechado": "Concluído",
+    "Concluido": "Concluído",
+    "Concluído": "Concluído",
+    "Resolvido": "Concluído"
+};
+const normalizarStatus = (status) => STATUS_ALIASES[status] || status || "Aberto";
 
 document.addEventListener("DOMContentLoaded", () => {
     const token = localStorage.getItem("token");
@@ -12,19 +24,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const statusFilter = document.getElementById('statusFilter');
     const tbody = document.getElementById('chamadosTableBody');
+    const btnPrevPage = document.getElementById('btnPrevPage');
+    const btnNextPage = document.getElementById('btnNextPage');
+    const pageInfo = document.getElementById('pageInfo');
     
     // Elementos do Modal
     const modal = document.getElementById("chamadoModal");
     const closeButton = document.querySelector(".close-button");
     
     let chamadosLista = []; // Guarda os dados vindos do banco
+    let paginaAtual = 1;
+    let totalPaginas = 1;
+    const itensPorPagina = 10;
 
     async function carregarChamados() {
         const status = statusFilter.value;
-        let url = `${API_URL}/meus-chamados`;
-        
+        let url = `${API_URL}/meus-chamados?page=${paginaAtual}&per_page=${itensPorPagina}`;
+
         if (status) {
-            url += `?status=${status}`;
+            url += `&status=${encodeURIComponent(status)}`;
         }
 
         try {
@@ -40,8 +58,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw new Error(`Erro HTTP: ${response.status}`);
             }
 
-            chamadosLista = await response.json();
+            const payload = await response.json();
+            chamadosLista = payload.items || payload;
+            totalPaginas = payload.total_pages || 1;
             tbody.innerHTML = '';
+            atualizarPaginacao();
 
             if (chamadosLista.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #666;">Nenhum chamado encontrado.</td></tr>`;
@@ -53,9 +74,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 tr.style.cursor = "pointer"; // Indica que a linha é clicável
                 tr.title = "Clique para ver detalhes";
                 
+                const statusNormalizado = normalizarStatus(chamado.status);
                 let statusClass = 'status-aberto';
-                if (chamado.status === 'Em Progresso') statusClass = 'status-progresso';
-                if (chamado.status === 'Fechado') statusClass = 'status-fechado';
+                if (statusNormalizado === 'Em Atendimento') statusClass = 'status-progresso';
+                if (statusNormalizado === 'Pausado') statusClass = 'status-pausado';
+                if (statusNormalizado === 'Concluído') statusClass = 'status-fechado';
 
                 const dataFormatada = chamado.data_criacao 
                     ? new Date(chamado.data_criacao).toLocaleDateString('pt-BR') 
@@ -64,7 +87,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 tr.innerHTML = `
                     <td>${chamado.id}</td>
                     <td><strong>${chamado.titulo}</strong></td>
-                    <td><span class="status-badge ${statusClass}">${chamado.status}</span></td>
+                    <td><span class="status-badge ${statusClass}">${statusNormalizado}</span></td>
                     <td>${chamado.prioridade}</td>
                     <td>${dataFormatada}</td>
                 `;
@@ -78,6 +101,12 @@ document.addEventListener("DOMContentLoaded", () => {
             console.error("Erro ao carregar chamados:", error);
             tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #dc2626;">Erro ao carregar dados do banco.</td></tr>`;
         }
+    }
+
+    function atualizarPaginacao() {
+        pageInfo.textContent = `Página ${paginaAtual} de ${totalPaginas}`;
+        btnPrevPage.disabled = paginaAtual <= 1;
+        btnNextPage.disabled = paginaAtual >= totalPaginas;
     }
 
     function abrirDetalhesModal(id) {
@@ -99,11 +128,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Gerencia classes de status no modal
         const statusSpan = document.getElementById("modalStatus");
-        statusSpan.textContent = chamado.status;
+        const statusNormalizado = normalizarStatus(chamado.status);
+        statusSpan.textContent = statusNormalizado;
         statusSpan.className = "status-badge";
-        if (chamado.status === 'Aberto') statusSpan.classList.add('status-aberto');
-        if (chamado.status === 'Em Progresso') statusSpan.classList.add('status-progresso');
-        if (chamado.status === 'Fechado') statusSpan.classList.add('status-fechado');
+        if (statusNormalizado === 'Aberto') statusSpan.classList.add('status-aberto');
+        if (statusNormalizado === 'Em Atendimento') statusSpan.classList.add('status-progresso');
+        if (statusNormalizado === 'Pausado') statusSpan.classList.add('status-pausado');
+        if (statusNormalizado === 'Concluído') statusSpan.classList.add('status-fechado');
 
         // Exibe o modal
         modal.style.display = "block";
@@ -115,6 +146,21 @@ document.addEventListener("DOMContentLoaded", () => {
         if (event.target === modal) modal.style.display = "none";
     });
 
-    statusFilter.addEventListener('change', carregarChamados);
+    statusFilter.addEventListener('change', () => {
+        paginaAtual = 1;
+        carregarChamados();
+    });
+    btnPrevPage.addEventListener('click', () => {
+        if (paginaAtual > 1) {
+            paginaAtual--;
+            carregarChamados();
+        }
+    });
+    btnNextPage.addEventListener('click', () => {
+        if (paginaAtual < totalPaginas) {
+            paginaAtual++;
+            carregarChamados();
+        }
+    });
     carregarChamados();
 });

@@ -1,12 +1,79 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status, Header
+from app.jwt_config import verificar_token
 from sqlalchemy.orm import Session
 from app.config.database import get_db
 from app.models.models import Setor, Usuario, Chamado
 from app.controllers.auth import get_current_user, get_current_gestor
+from app.controllers.chamado import calcular_sla_chamado, serializar_chamado
 from app.controllers.request import abrirChamado
-from app.schemas.schemas import LoginSchema, SetorSchema, PedidoSchema, UsuarioCadastroSchema
+from app.schemas.schemas import LoginSchema, SetorSchema, PedidoSchema, UsuarioCadastroSchema, normalizar_status
 from app.schemas.schemas import AtualizarPerfilSchema, AlterarSenhaSchema
 router = APIRouter()
+
+
+def _usuario_por_authorization(db: Session, authorization: Optional[str]) -> Usuario:
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Token de autenticação obrigatório")
+    dados = verificar_token(authorization.split(" ", 1)[1])
+    usuario = db.query(Usuario).filter(Usuario.id == dados["usuario_id"]).first()
+    if usuario is None:
+        raise HTTPException(status_code=401, detail="Usuário não encontrado")
+    if usuario.ativo is False:
+        raise HTTPException(status_code=403, detail="Usuário inativo")
+    return usuario
+
+
+def _exigir_admin_ou_bootstrap(db: Session, authorization: Optional[str]) -> None:
+    if db.query(Usuario).count() == 0:
+        return
+    usuario = _usuario_por_authorization(db, authorization)
+    if usuario.perfil != "Administrador":
+        raise HTTPException(status_code=403, detail="Apenas administradores podem realizar esta ação")
+
+
+def _status_equivalentes(valor: str) -> list[str]:
+    status_normalizado = normalizar_status(valor)
+    equivalencias = {
+        "Aberto": ["Aberto"],
+        "Em Atendimento": ["Em Atendimento", "Em Progresso", "Em Andamento"],
+        "Pausado": ["Pausado"],
+        "Concluído": ["Concluído", "Concluido", "Fechado", "Resolvido"],
+    }
+    return equivalencias.get(status_normalizado, [valor])
+
+
+def _resposta_paginada(items: list, total: int, page: Optional[int], per_page: int):
+    if page is None:
+        return items
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": max(1, (total + per_page - 1) // per_page),
+    }
+
+
+def _serializar_chamado_lista(c: Chamado, db: Session) -> dict:
+    setor_res = db.query(Setor).filter(Setor.id == c.setor_responsavel_id).first()
+    usuario_res = None
+    if c.usuario_responsavel_id:
+        usuario_res = db.query(Usuario).filter(Usuario.id == c.usuario_responsavel_id).first()
+    return {
+        "id": c.id,
+        "titulo": c.titulo,
+        "descricao": c.descricao,
+        "status": normalizar_status(c.status),
+        "prioridade": c.prioridade,
+        "data_criacao": c.data_criacao.isoformat() if c.data_criacao else None,
+        "data_atualizacao": c.data_atualizacao.isoformat() if c.data_atualizacao else None,
+        "setor_responsavel": setor_res.nome if setor_res else "Não informado",
+        "usuario_responsavel": usuario_res.nome if usuario_res else "Enviar para todos (Nenhum específico)",
+        "usuario_responsavel_id": c.usuario_responsavel_id,
+        "sla": calcular_sla_chamado(c),
+    }
 
 @router.get("/teste-auth")
 def teste_auth(authorization: str = Header(None)):
@@ -14,11 +81,12 @@ def teste_auth(authorization: str = Header(None)):
 
 @router.post("/setores")
 def cadastrar_setor(
-    setor: SetorSchema, 
-    db: Session = Depends(get_db), 
-    #gestor: Usuario = Depends(get_current_gestor) # Usa a nova dependência nativa
+    setor: SetorSchema,
+    db: Session = Depends(get_db),
+    authorization: Optional[str] = Header(None),
 ):
-    novo_setor = Setor(nome=setor.nome, sigla=setor.sigla)
+    _exigir_admin_ou_bootstrap(db, authorization)
+    novo_setor = Setor(nome=setor.nome, sigla=setor.sigla.upper())
     db.add(novo_setor)
     db.commit()
     db.refresh(novo_setor)
@@ -57,11 +125,25 @@ def login(login: LoginSchema, db: Session = Depends(get_db)):
     }
 
 @router.post("/cadastrarUsuarios")
-def cadastrar_usuario(usuarios: UsuarioCadastroSchema, db: Session = Depends(get_db)):
+def cadastrar_usuario(
+    usuarios: UsuarioCadastroSchema,
+    db: Session = Depends(get_db),
+    authorization: Optional[str] = Header(None),
+):
     from app.models.models import Usuario
     from bcrypt import hashpw, gensalt
+    _exigir_admin_ou_bootstrap(db, authorization)
+    setor = db.query(Setor).filter(Setor.sigla == usuarios.setor_sigla.upper()).first()
+    if setor is None:
+        raise HTTPException(status_code=404, detail="Setor não encontrado")
     senha_hashed = hashpw(usuarios.senha.encode('utf-8'), gensalt()).decode('utf-8')
-    usuario = Usuario(nome=usuarios.nome, email=usuarios.email, senha_hash=senha_hashed, setor_id=db.query(Setor).filter(Setor.sigla == usuarios.setor_sigla).first().id)
+    usuario = Usuario(
+        nome=usuarios.nome,
+        email=usuarios.email,
+        senha_hash=senha_hashed,
+        setor_id=setor.id,
+        perfil=usuarios.perfil,
+    )
     db.add(usuario)
     db.commit()
     db.refresh(usuario)
@@ -96,41 +178,26 @@ def listar_usuarios_por_setor(
 
 @router.get("/meus-chamados")
 def listar_meus_chamados(
-    status: str = None, 
-    db: Session = Depends(get_db), 
+    status: str = None,
+    page: Optional[int] = None,
+    per_page: int = 10,
+    db: Session = Depends(get_db),
     usuario: Usuario = Depends(get_current_user)
 ):
-    from app.models.models import Chamado, Setor, Usuario as ModelUsuario
-    
     query = db.query(Chamado).filter(Chamado.usuario_solicitante_id == usuario.id)
-    
+
     if status:
-        query = query.filter(Chamado.status == status)
-        
-    chamados = query.all()
-    
-    resultado = []
-    for c in chamados:
-        # Busca o nome do setor responsável
-        setor_res = db.query(Setor).filter(Setor.id == c.setor_responsavel_id).first()
-        
-        # Busca o nome do usuário responsável (se houver)
-        usuario_res = None
-        if c.usuario_responsavel_id:
-            usuario_res = db.query(ModelUsuario).filter(ModelUsuario.id == c.usuario_responsavel_id).first()
-            
-        resultado.append({
-            "id": c.id,
-            "titulo": c.titulo,
-            "descricao": c.descricao,
-            "status": c.status,
-            "prioridade": c.prioridade,
-            "data_criacao": c.data_criacao.isoformat() if c.data_criacao else None,
-            "setor_responsavel": setor_res.nome if setor_res else "Não informado",
-            "usuario_responsavel": usuario_res.nome if usuario_res else "Enviar para todos (Nenhum específico)"
-        })
-        
-    return resultado
+        query = query.filter(Chamado.status.in_(_status_equivalentes(status)))
+
+    total = query.count()
+    query = query.order_by(Chamado.data_criacao.desc())
+    if page is not None:
+        page = max(1, page)
+        per_page = min(max(1, per_page), 100)
+        query = query.offset((page - 1) * per_page).limit(per_page)
+
+    resultado = [_serializar_chamado_lista(c, db) for c in query.all()]
+    return _resposta_paginada(resultado, total, page, per_page)
 
 @router.get("/usuarios")
 def listar_usuarios(
@@ -277,9 +344,10 @@ def listar_setores_dashboard(
         total_funcionarios = db.query(Usuario).filter(Usuario.setor_id == s.id, Usuario.ativo == True).count()
         
         # Agregação de chamados por status vinculados ao setor_responsavel_id
-        chamados_abertos = db.query(Chamado).filter(Chamado.setor_responsavel_id == s.id, Chamado.status == "Aberto").count()
-        chamados_andamento = db.query(Chamado).filter(Chamado.setor_responsavel_id == s.id, Chamado.status == "Em Progresso").count()
-        chamados_fechados = db.query(Chamado).filter(Chamado.setor_responsavel_id == s.id, Chamado.status == "Fechado").count()
+        chamados_abertos = db.query(Chamado).filter(Chamado.setor_responsavel_id == s.id, Chamado.status.in_(_status_equivalentes("Aberto"))).count()
+        chamados_andamento = db.query(Chamado).filter(Chamado.setor_responsavel_id == s.id, Chamado.status.in_(_status_equivalentes("Em Atendimento"))).count()
+        chamados_pausados = db.query(Chamado).filter(Chamado.setor_responsavel_id == s.id, Chamado.status.in_(_status_equivalentes("Pausado"))).count()
+        chamados_fechados = db.query(Chamado).filter(Chamado.setor_responsavel_id == s.id, Chamado.status.in_(_status_equivalentes("Concluído"))).count()
         
         resultado.append({
             "id": s.id,
@@ -288,6 +356,7 @@ def listar_setores_dashboard(
             "total_funcionarios": total_funcionarios,
             "chamados_abertos": chamados_abertos,
             "chamados_andamento": chamados_andamento,
+            "chamados_pausados": chamados_pausados,
             "chamados_fechados": chamados_fechados
         })
         
@@ -296,6 +365,8 @@ def listar_setores_dashboard(
 @router.get("/setores/{setor_id}/chamados")
 def listar_chamados_do_setor(
     setor_id: int,
+    page: Optional[int] = None,
+    per_page: int = 10,
     db: Session = Depends(get_db),
     usuario_autenticado: Usuario = Depends(get_current_user)
 ):
@@ -307,9 +378,15 @@ def listar_chamados_do_setor(
         raise HTTPException(status_code=403, detail="Permissão negada ao escopo do setor")
 
     # Retorna os chamados ordenados de forma ascendente pela data_criacao (tempo de abertura)
-    chamados = db.query(Chamado).filter(Chamado.setor_responsavel_id == setor_id).order_by(Chamado.data_criacao.asc()).all()
-    
-    return chamados
+    query = db.query(Chamado).filter(Chamado.setor_responsavel_id == setor_id).order_by(Chamado.data_criacao.asc())
+    total = query.count()
+    if page is not None:
+        page = max(1, page)
+        per_page = min(max(1, per_page), 100)
+        query = query.offset((page - 1) * per_page).limit(per_page)
+
+    chamados = [_serializar_chamado_lista(c, db) for c in query.all()]
+    return _resposta_paginada(chamados, total, page, per_page)
 
 @router.get("/setores/{setor_id}/chamados-dashboard")
 def listar_chamados_dashboard(
@@ -324,13 +401,14 @@ def listar_chamados_dashboard(
         raise HTTPException(status_code=403, detail="Permissão negada ao escopo do setor")
 
     # Retorna unicamente chamados sem dono OU atribuídos diretamente ao usuário logado
-    return db.query(Chamado).filter(
+    chamados = db.query(Chamado).filter(
         Chamado.setor_responsavel_id == setor_id,
         or_(
             Chamado.usuario_responsavel_id == usuario_autenticado.id,
             Chamado.usuario_responsavel_id == None
         )
     ).order_by(Chamado.data_criacao.asc()).all()
+    return [serializar_chamado(c, db, True) for c in chamados]
 
 @router.put("/setores/{setor_id}")
 def atualizar_setor(

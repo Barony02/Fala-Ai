@@ -1,23 +1,48 @@
+:root {
+    --app-bg: #f8fafc;
+    --app-surface: #ffffff;
+    --app-surface-muted: #f1f5f9;
+    --app-border: #e2e8f0;
+    --app-text: #0f172a;
+    --app-muted: #64748b;
+    --app-sidebar: #0f172a;
+    --app-sidebar-hover: #1e293b;
+    --app-accent: #38bdf8;
+}
+
+[data-theme="dark"] {
+    --app-bg: #101820;
+    --app-surface: #18232e;
+    --app-surface-muted: #223142;
+    --app-border: #334155;
+    --app-text: #f8fafc;
+    --app-muted: #cbd5e1;
+    --app-sidebar: #07111f;
+    --app-sidebar-hover: #111c2b;
+    --app-accent: #22d3ee;
+}
+
 body {
     margin: 0;
     padding: 0;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background-color: #f8fafc;
+    background-color: var(--app-bg);
+    color: var(--app-text);
 }
 
 /* Sidebar Container */
 #sidebar-container {
     width: 280px;
     flex-shrink: 0;
-    background-color: #0f172a;
-    border-right: 1px solid #1e293b;
+    background-color: var(--app-sidebar);
+    border-right: 1px solid var(--app-sidebar-hover);
 }
 
 /* Sidebar */
 .sidebar {
     width: 100%;
     height: 100vh;
-    background-color: #0f172a;
+    background-color: var(--app-sidebar);
     color: #f8fafc;
     display: flex;
     flex-direction: column;
@@ -122,6 +147,14 @@ body {
     box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
 
+.theme-toggle-btn {
+    width: 100%;
+    justify-content: flex-start;
+    margin-bottom: 8px;
+    background-color: rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.18);
+}
+
 /* Layout Principal */
 .dashboard-layout {
     display: flex;
@@ -139,14 +172,14 @@ body {
 
 .content-area h1 {
     margin: 0 0 10px 0;
-    color: #0f172a;
+    color: var(--app-text);
     font-size: 28px;
     font-weight: 700;
 }
 
 .content-area > p {
     margin: 0;
-    color: #64748b;
+    color: var(--app-muted);
     font-size: 14px;
 }
 
@@ -165,3 +198,115 @@ body {
     display: inline-block;
 }
 
+[data-theme="dark"] body,
+[data-theme="dark"] .content-area,
+[data-theme="dark"] .content,
+[data-theme="dark"] .app-container {
+    background: var(--app-bg) !important;
+    color: var(--app-text) !important;
+}
+
+[data-theme="dark"] h1,
+[data-theme="dark"] h2,
+[data-theme="dark"] h3,
+[data-theme="dark"] h4,
+[data-theme="dark"] .content-area h1,
+[data-theme="dark"] .header-title h1,
+[data-theme="dark"] .page-header h1 {
+    color: var(--app-text) !important;
+}
+
+[data-theme="dark"] p,
+[data-theme="dark"] label,
+[data-theme="dark"] .content-area > p,
+[data-theme="dark"] .header-title p,
+[data-theme="dark"] .breadcrumb,
+[data-theme="dark"] .action-desc,
+[data-theme="dark"] .user-meta {
+    color: var(--app-muted) !important;
+}
+
+[data-theme="dark"] .form-chamado,
+[data-theme="dark"] .sidebar-card,
+[data-theme="dark"] .recent-tickets-section,
+[data-theme="dark"] .table-container,
+[data-theme="dark"] .chamados-detalhes,
+[data-theme="dark"] .profile-card,
+[data-theme="dark"] .modal-content,
+[data-theme="dark"] .kanban-card,
+[data-theme="dark"] .action-card,
+[data-theme="dark"] .note-form-card,
+[data-theme="dark"] .history-card,
+[data-theme="dark"] .tabela-chamados,
+[data-theme="dark"] .tickets-table,
+[data-theme="dark"] .info-block {
+    background: var(--app-surface) !important;
+    color: var(--app-text) !important;
+    border-color: var(--app-border) !important;
+}
+
+[data-theme="dark"] .kanban-column,
+[data-theme="dark"] .history-item,
+[data-theme="dark"] .sector-timer-item,
+[data-theme="dark"] .box-descricao,
+[data-theme="dark"] .box-descricao-preview,
+[data-theme="dark"] th,
+[data-theme="dark"] .tickets-table th,
+[data-theme="dark"] .tabela-chamados th {
+    background: var(--app-surface-muted) !important;
+    color: var(--app-text) !important;
+    border-color: var(--app-border) !important;
+}
+
+[data-theme="dark"] td,
+[data-theme="dark"] .tickets-table td,
+[data-theme="dark"] .tabela-chamados td,
+[data-theme="dark"] .card-title,
+[data-theme="dark"] .card-desc,
+[data-theme="dark"] .card-footer,
+[data-theme="dark"] .history-item strong,
+[data-theme="dark"] .sector-timer-item strong,
+[data-theme="dark"] .timer-metric b,
+[data-theme="dark"] .modal-body p {
+    color: var(--app-muted) !important;
+    border-color: var(--app-border) !important;
+}
+
+[data-theme="dark"] .timer-metric span {
+    color: var(--app-muted) !important;
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select,
+[data-theme="dark"] .select-action,
+[data-theme="dark"] .transfer-form textarea,
+[data-theme="dark"] .note-form-card textarea {
+    background: #0f172a !important;
+    color: var(--app-text) !important;
+    border-color: var(--app-border) !important;
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+    color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .filter-tabs {
+    background: var(--app-surface-muted) !important;
+}
+
+[data-theme="dark"] .tab-btn.active,
+[data-theme="dark"] .pagination-controls button,
+[data-theme="dark"] .timer-metric,
+[data-theme="dark"] .btn-cancelar,
+[data-theme="dark"] .btn-secondary {
+    background: var(--app-surface) !important;
+    color: var(--app-text) !important;
+    border-color: var(--app-border) !important;
+}
+
+[data-theme="dark"] .clickable-row:hover,
+[data-theme="dark"] .tabela-chamados tbody tr:hover {
+    background: var(--app-surface-muted) !important;
+}

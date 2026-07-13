@@ -38,18 +38,25 @@
                 <div class="kanban-cards-container" id="cards-Aberto"></div>
             </div>
 
-            <div class="kanban-column" data-status="Em Progresso" ondragover="allowDrop(event)" ondrop="drop(event)">
+            <div class="kanban-column" data-status="Em Atendimento" ondragover="allowDrop(event)" ondrop="drop(event)">
                 <div class="column-header status-progresso">
-                    <h3>Em Progresso <span class="count-badge" id="count-Progresso">0</span></h3>
+                    <h3>Em Atendimento <span class="count-badge" id="count-Atendimento">0</span></h3>
                 </div>
-                <div class="kanban-cards-container" id="cards-Progresso"></div>
+                <div class="kanban-cards-container" id="cards-Atendimento"></div>
             </div>
 
-            <div class="kanban-column" data-status="Fechado" ondragover="allowDrop(event)" ondrop="drop(event)">
-                <div class="column-header status-fechado">
-                    <h3>Fechado <span class="count-badge" id="count-Fechado">0</span></h3>
+            <div class="kanban-column" data-status="Pausado" ondragover="allowDrop(event)" ondrop="drop(event)">
+                <div class="column-header status-pausado">
+                    <h3>Pausado <span class="count-badge" id="count-Pausado">0</span></h3>
                 </div>
-                <div class="kanban-cards-container" id="cards-Fechado"></div>
+                <div class="kanban-cards-container" id="cards-Pausado"></div>
+            </div>
+
+            <div class="kanban-column" data-status="Concluído" ondragover="allowDrop(event)" ondrop="drop(event)">
+                <div class="column-header status-fechado">
+                    <h3>Concluído <span class="count-badge" id="count-Concluido">0</span></h3>
+                </div>
+                <div class="kanban-cards-container" id="cards-Concluido"></div>
             </div>
         </div>
     </main>
@@ -75,6 +82,7 @@
                     <div><label><i class="fa-solid fa-clock"></i> Status Atual</label><span id="modalStatusAtual" class="status-indicator">-</span></div>
                     <div><label><i class="fa-solid fa-calendar-plus"></i> Data de Criação</label><span id="modalDataCriacao">-</span></div>
                     <div><label><i class="fa-solid fa-calendar-check"></i> Última Atualização</label><span id="modalDataAtualizacao">-</span></div>
+                    <div><label><i class="fa-solid fa-stopwatch"></i> SLA</label><span id="modalSla">-</span></div>
                 </div>
             </div>
 
@@ -94,6 +102,21 @@
                         <textarea id="txtJustificativaTransferencia" placeholder="Digite a justificativa..."></textarea>
                         <button id="btnTransferir" class="btn-action btn-outline">Transferir Chamado</button>
                     </div>
+                </div>
+            </div>
+            <div class="notes-panel">
+                <div class="note-form-card">
+                    <h4><i class="fa-solid fa-note-sticky"></i> Nota interna</h4>
+                    <textarea id="txtNotaInterna" placeholder="Registrar uma nota visível apenas para a equipe técnica..."></textarea>
+                    <button id="btnSalvarNota" class="btn-action btn-primary">Salvar Nota</button>
+                </div>
+                <div class="history-card">
+                    <h4><i class="fa-solid fa-clock-rotate-left"></i> Histórico</h4>
+                    <div id="listaHistorico" class="history-list"></div>
+                </div>
+                <div class="history-card">
+                    <h4><i class="fa-solid fa-hourglass-half"></i> Tempos por setor</h4>
+                    <div id="listaTemposSetor" class="sector-timer-list"></div>
                 </div>
             </div>
             <div id="modalMensagem" class="mensagem" style="margin-top: 15px;"></div>

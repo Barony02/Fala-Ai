@@ -23,8 +23,9 @@
             <select id="statusFilter">
                 <option value="">Todos</option>
                 <option value="Aberto">Aberto</option>
-                <option value="Em Progresso">Em Progresso</option>
-                <option value="Fechado">Fechado</option>
+                <option value="Em Atendimento">Em Atendimento</option>
+                <option value="Pausado">Pausado</option>
+                <option value="Concluído">Concluído</option>
             </select>
         </div>
 
@@ -44,6 +45,12 @@
                 </tr>
             </tbody>
         </table>
+
+        <div class="pagination-controls">
+            <button id="btnPrevPage" type="button">Anterior</button>
+            <span id="pageInfo">Página 1 de 1</span>
+            <button id="btnNextPage" type="button">Próxima</button>
+        </div>
     </main>
 </div>
 

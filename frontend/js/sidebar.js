@@ -1,11 +1,19 @@
 const container = document.getElementById("sidebar-container");
+const THEME_KEY = "fala_ai_theme";
+
+function aplicarTemaSalvo() {
+    const tema = localStorage.getItem(THEME_KEY) || "light";
+    document.documentElement.setAttribute("data-theme", tema);
+}
+
+aplicarTemaSalvo();
 
 function carregarSidebar() {
     if (!container) return;
 
     const sidebarCache = sessionStorage.getItem('sidebar_html');
     
-    if (sidebarCache) {
+    if (sidebarCache && sidebarCache.includes("btn-theme-toggle")) {
         montarSidebar(sidebarCache);
     } else {
         fetch('/components/sidebar.html')
@@ -21,6 +29,7 @@ function montarSidebar(html) {
     container.innerHTML = html;
     configurarVisibilidadePorPerfil();
     destacarMenuAtivo();
+    configurarTema();
     configurarBotaoSair();
 }
 
@@ -52,6 +61,29 @@ function configurarBotaoSair() {
             window.location.href = "/index.html"; 
         });
     }
+}
+
+function configurarTema() {
+    const btnTema = document.getElementById("btn-theme-toggle");
+    if (!btnTema) return;
+
+    function renderizarBotao() {
+        const temaAtual = document.documentElement.getAttribute("data-theme") || "light";
+        const escuro = temaAtual === "dark";
+        btnTema.innerHTML = escuro
+            ? '<i class="fas fa-sun"></i> <span>Modo claro</span>'
+            : '<i class="fas fa-moon"></i> <span>Modo escuro</span>';
+    }
+
+    btnTema.addEventListener("click", () => {
+        const temaAtual = document.documentElement.getAttribute("data-theme") || "light";
+        const novoTema = temaAtual === "dark" ? "light" : "dark";
+        localStorage.setItem(THEME_KEY, novoTema);
+        document.documentElement.setAttribute("data-theme", novoTema);
+        renderizarBotao();
+    });
+
+    renderizarBotao();
 }
 
 // Executa imediatamente

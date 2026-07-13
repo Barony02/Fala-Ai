@@ -11,7 +11,181 @@ from app.schemas.schemas import (
     TransferenciaSchema,
     STATUS_VALIDOS,
     PRIORIDADES_VALIDAS,
+    normalizar_status,
 )
+
+PRAZOS_SLA_HORAS = {
+    "Alta": 4,
+    "Média": 24,
+    "Baixa": 48,
+}
+
+
+def _agora_compativel(referencia=None):
+    agora = datetime.datetime.now(timezone.utc)
+    if referencia is not None and referencia.tzinfo is None:
+        return agora.replace(tzinfo=None)
+    return agora
+
+
+def _horas_entre(inicio, fim) -> float:
+    if inicio is None or fim is None:
+        return 0.0
+    if inicio.tzinfo is None and fim.tzinfo is not None:
+        fim = fim.replace(tzinfo=None)
+    if inicio.tzinfo is not None and fim.tzinfo is None:
+        inicio = inicio.replace(tzinfo=None)
+    return max(0.0, (fim - inicio).total_seconds() / 3600)
+
+
+def _data_compativel(valor, referencia):
+    if valor is None or referencia is None:
+        return valor
+    if valor.tzinfo is None and referencia.tzinfo is not None:
+        return valor.replace(tzinfo=referencia.tzinfo)
+    if valor.tzinfo is not None and referencia.tzinfo is None:
+        return valor.replace(tzinfo=None)
+    return valor
+
+
+def _data_no_intervalo(valor, inicio, fim) -> bool:
+    if valor is None or inicio is None or fim is None:
+        return False
+    valor = _data_compativel(valor, inicio)
+    fim = _data_compativel(fim, inicio)
+    return inicio <= valor <= fim
+
+
+def calcular_sla_chamado(chamado: Chamado) -> dict:
+    prazo_horas = PRAZOS_SLA_HORAS.get(chamado.prioridade or "Média", 24)
+    fim = chamado.data_atualizacao if normalizar_status(chamado.status) == "Concluído" else _agora_compativel(chamado.data_criacao)
+    horas_decorridas = _horas_entre(chamado.data_criacao, fim)
+    percentual = round((horas_decorridas / prazo_horas) * 100, 1) if prazo_horas else 0
+
+    if normalizar_status(chamado.status) == "Concluído":
+        estado = "concluido"
+    elif percentual >= 100:
+        estado = "atrasado"
+    elif percentual >= 80:
+        estado = "critico"
+    else:
+        estado = "no_prazo"
+
+    return {
+        "prazo_horas": prazo_horas,
+        "horas_decorridas": round(horas_decorridas, 2),
+        "percentual": percentual,
+        "estado": estado,
+    }
+
+
+def calcular_tempos_por_status(chamado: Chamado, db: Session) -> dict:
+    entradas = (
+        db.query(HistoricoChamado)
+        .filter(HistoricoChamado.chamado_id == chamado.id, HistoricoChamado.tipo == "Status")
+        .order_by(HistoricoChamado.data_criacao.asc())
+        .all()
+    )
+    tempos = {status: 0.0 for status in STATUS_VALIDOS}
+    status_atual = "Aberto"
+    inicio_periodo = chamado.data_criacao
+
+    for entrada in entradas:
+        tempos[status_atual] = tempos.get(status_atual, 0.0) + _horas_entre(inicio_periodo, entrada.data_criacao)
+        status_atual = normalizar_status(entrada.valor_novo) or status_atual
+        inicio_periodo = entrada.data_criacao
+
+    fim = chamado.data_atualizacao if normalizar_status(chamado.status) == "Concluído" else _agora_compativel(inicio_periodo)
+    status_final = normalizar_status(chamado.status) or status_atual
+    tempos[status_final] = tempos.get(status_final, 0.0) + _horas_entre(inicio_periodo, fim)
+    return {status: round(horas, 2) for status, horas in tempos.items() if horas > 0}
+
+
+def calcular_tempos_por_setor(chamado: Chamado, db: Session) -> list[dict]:
+    transferencias = (
+        db.query(HistoricoChamado)
+        .filter(HistoricoChamado.chamado_id == chamado.id, HistoricoChamado.tipo == "Transferência")
+        .order_by(HistoricoChamado.data_criacao.asc())
+        .all()
+    )
+    eventos = (
+        db.query(HistoricoChamado)
+        .filter(HistoricoChamado.chamado_id == chamado.id, HistoricoChamado.tipo.in_(["Status", "Responsável"]))
+        .order_by(HistoricoChamado.data_criacao.asc())
+        .all()
+    )
+
+    setor_inicial_id = transferencias[0].setor_origem_id if transferencias and transferencias[0].setor_origem_id else chamado.setor_responsavel_id
+    setor_atual_id = setor_inicial_id
+    inicio_periodo = chamado.data_criacao
+    segmentos = []
+
+    for transferencia in transferencias:
+        segmentos.append({
+            "setor_id": setor_atual_id,
+            "entrada": inicio_periodo,
+            "saida": transferencia.data_criacao,
+            "transferido": True,
+        })
+        setor_atual_id = transferencia.setor_destino_id or setor_atual_id
+        inicio_periodo = transferencia.data_criacao
+
+    fim_final = chamado.data_atualizacao if normalizar_status(chamado.status) == "Concluído" else _agora_compativel(inicio_periodo)
+    segmentos.append({
+        "setor_id": setor_atual_id,
+        "entrada": inicio_periodo,
+        "saida": fim_final,
+        "transferido": False,
+    })
+
+    ids_setores = {segmento["setor_id"] for segmento in segmentos if segmento["setor_id"]}
+    setores = db.query(Setor).filter(Setor.id.in_(ids_setores)).all() if ids_setores else []
+    setores_map = {s.id: {"id": s.id, "nome": s.nome, "sigla": s.sigla} for s in setores}
+
+    possui_historico_responsavel = any(e.tipo == "Responsável" for e in eventos)
+    resultado = []
+    for indice, segmento in enumerate(segmentos):
+        entrada = segmento["entrada"]
+        saida = segmento["saida"]
+        primeira_resposta = None
+        resolucao = None
+
+        for evento in eventos:
+            if not _data_no_intervalo(evento.data_criacao, entrada, saida):
+                continue
+            if primeira_resposta is None:
+                iniciou_atendimento = evento.tipo == "Status" and normalizar_status(evento.valor_novo) == "Em Atendimento"
+                assumiu_responsavel = evento.tipo == "Responsável" and bool(evento.valor_novo)
+                if iniciou_atendimento or assumiu_responsavel:
+                    primeira_resposta = evento.data_criacao
+            if resolucao is None and evento.tipo == "Status" and normalizar_status(evento.valor_novo) == "Concluído":
+                resolucao = evento.data_criacao
+
+        if indice == 0 and primeira_resposta is None and chamado.usuario_responsavel_id and not possui_historico_responsavel:
+            primeira_resposta = entrada
+        if not segmento["transferido"] and normalizar_status(chamado.status) == "Concluído" and resolucao is None:
+            resolucao = saida
+
+        resultado.append({
+            "setor": setores_map.get(segmento["setor_id"], {"id": segmento["setor_id"], "nome": "Setor não identificado", "sigla": "-"}),
+            "entrada": entrada.isoformat() if entrada else None,
+            "saida": saida.isoformat() if saida else None,
+            "tempo_resposta_horas": round(_horas_entre(entrada, primeira_resposta), 2) if primeira_resposta else None,
+            "tempo_resolucao_horas": round(_horas_entre(entrada, resolucao), 2) if resolucao else None,
+            "tempo_total_horas": round(_horas_entre(entrada, saida), 2),
+            "respondido": primeira_resposta is not None,
+            "resolvido": resolucao is not None,
+            "transferido": segmento["transferido"],
+        })
+    return resultado
+
+
+def usuario_pode_concluir_chamado(usuario: Usuario, chamado: Chamado) -> bool:
+    if usuario.perfil == "Administrador":
+        return True
+    if usuario.perfil == "Gestor" and usuario.setor_id == chamado.setor_responsavel_id:
+        return True
+    return usuario.id == chamado.usuario_responsavel_id
 
 
 def buscar_chamado_ou_404(chamado_id: int, db: Session) -> Chamado:
@@ -60,8 +234,12 @@ def serializar_chamado(chamado: Chamado, db: Session, eh_equipe: bool) -> dict:
         "id": chamado.id,
         "titulo": chamado.titulo,
         "descricao": chamado.descricao,
-        "status": chamado.status,
+        "status": normalizar_status(chamado.status),
         "prioridade": chamado.prioridade,
+        "setor_solicitante_id": chamado.setor_solicitante_id,
+        "setor_responsavel_id": chamado.setor_responsavel_id,
+        "usuario_solicitante_id": chamado.usuario_solicitante_id,
+        "usuario_responsavel_id": chamado.usuario_responsavel_id,
         "data_criacao": chamado.data_criacao.isoformat() if chamado.data_criacao else None,
         "data_atualizacao": chamado.data_atualizacao.isoformat() if chamado.data_atualizacao else None,
         "setor_solicitante": {
@@ -77,6 +255,9 @@ def serializar_chamado(chamado: Chamado, db: Session, eh_equipe: bool) -> dict:
             "id": usuario_responsavel.id, "nome": usuario_responsavel.nome
         } if usuario_responsavel else None,
         "pode_gerenciar": eh_equipe,
+        "sla": calcular_sla_chamado(chamado),
+        "tempos_por_status": calcular_tempos_por_status(chamado, db),
+        "tempos_por_setor": calcular_tempos_por_setor(chamado, db),
     }
 
 
@@ -114,13 +295,15 @@ def atualizar_chamado(usuario: Usuario, chamado: Chamado, dados: AtualizarChamad
     algo_mudou = False
 
     if "status" in campos_enviados:
-        novo_status = campos_enviados["status"]
+        novo_status = normalizar_status(campos_enviados["status"])
         if novo_status not in STATUS_VALIDOS:
             raise HTTPException(status_code=422, detail=f"Status inválido. Valores aceitos: {sorted(STATUS_VALIDOS)}")
-        if novo_status != chamado.status:
+        if novo_status == "Concluído" and not usuario_pode_concluir_chamado(usuario, chamado):
+            raise HTTPException(status_code=403, detail="Apenas o responsável atribuído, gestor do setor ou administrador podem concluir o chamado")
+        if novo_status != normalizar_status(chamado.status):
             _registrar_historico(
                 db, chamado.id, usuario.id, "Status",
-                comentario=dados.justificativa, valor_anterior=chamado.status, valor_novo=novo_status,
+                comentario=dados.justificativa, valor_anterior=normalizar_status(chamado.status), valor_novo=novo_status,
             )
             chamado.status = novo_status
             algo_mudou = True
@@ -141,7 +324,7 @@ def atualizar_chamado(usuario: Usuario, chamado: Chamado, dados: AtualizarChamad
         novo_responsavel_id = campos_enviados["usuario_responsavel_id"]
         if novo_responsavel_id is not None:
             novo_responsavel = db.query(Usuario).filter(Usuario.id == novo_responsavel_id).first()
-            if novo_responsavel is None or not novo_responsavel.ativo:
+            if novo_responsavel is None or novo_responsavel.ativo is False:
                 raise HTTPException(status_code=422, detail="Usuário responsável inválido ou inativo")
             if novo_responsavel.setor_id != chamado.setor_responsavel_id:
                 raise HTTPException(status_code=422, detail="O responsável precisa pertencer ao setor responsável do chamado")

@@ -2,8 +2,40 @@ console.log("dashboard.js carregado com controle de fuso e sem busca!");
 
 const API_URL = `http://${window.location.hostname}:8000/api`;
 const PESO_PRIORIDADE = { "Alta": 3, "Média": 2, "Baixa": 1 };
+const STATUS_ALIASES = {
+    "Aberto": "Aberto",
+    "Em Progresso": "Em Atendimento",
+    "Em Andamento": "Em Atendimento",
+    "Em Atendimento": "Em Atendimento",
+    "Pausado": "Pausado",
+    "Fechado": "Concluído",
+    "Concluido": "Concluído",
+    "Concluído": "Concluído",
+    "Resolvido": "Concluído"
+};
+const STATUS_CONFIG = {
+    "Aberto": { cards: "cards-Aberto", count: "count-Aberto" },
+    "Em Atendimento": { cards: "cards-Atendimento", count: "count-Atendimento" },
+    "Pausado": { cards: "cards-Pausado", count: "count-Pausado" },
+    "Concluído": { cards: "cards-Concluido", count: "count-Concluido" }
+};
 
 const getToken = () => localStorage.getItem("token") || localStorage.getItem("access_token");
+const normalizarStatus = (status) => STATUS_ALIASES[status] || status || "Aberto";
+
+function mostrarMensagemDashboard(texto, tipo = "info") {
+    const modalMensagem = document.getElementById("modalMensagem");
+    if (!modalMensagem) {
+        alert(texto);
+        return;
+    }
+    modalMensagem.textContent = texto;
+    modalMensagem.className = `mensagem ${tipo}`;
+    setTimeout(() => {
+        modalMensagem.textContent = "";
+        modalMensagem.className = "mensagem";
+    }, 4000);
+}
 
 window.allowDrop = (ev) => ev.preventDefault();
 
@@ -20,11 +52,11 @@ window.drop = async (ev) => {
     const targetColumn = ev.target.closest(".kanban-column");
     if (!targetColumn) return;
     
-    const novoStatus = targetColumn.getAttribute("data-status");
+    const novoStatus = normalizarStatus(targetColumn.getAttribute("data-status"));
     const chamadoLocal = filaOriginal.find(c => c.id == chamadoId);
     let responsavelAlvoId = chamadoLocal ? (chamadoLocal.usuario_responsavel?.id || chamadoLocal.usuario_responsavel_id) : null;
 
-    if (novoStatus === "Em Progresso" && (!responsavelAlvoId || responsavelAlvoId === 0)) {
+    if (novoStatus === "Em Atendimento" && (!responsavelAlvoId || responsavelAlvoId === 0)) {
         responsavelAlvoId = usuarioLogado.id;
     }
 
@@ -36,7 +68,7 @@ window.drop = async (ev) => {
         });
         
         if (res.ok) window.dispatchEvent(new CustomEvent("refreshKanban"));
-        else alert(`Erro na transição: ${(await res.json()).detail || "Não autorizado"}`);
+        else mostrarMensagemDashboard((await res.json()).detail || "Não autorizado", "erro");
     } catch (e) { console.error(e); }
 };
 
@@ -53,6 +85,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const modal = document.getElementById("actionModal");
     const closeButton = document.querySelector(".close-button");
+
+    function mostrarMensagemModal(texto, tipo = "info") {
+        mostrarMensagemDashboard(texto, tipo);
+    }
 
     window.addEventListener("refreshKanban", () => buscarFilaDoSetor());
 
@@ -95,7 +131,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function filtrarOrdenarERenderizar() {
         let dados = [...filaOriginal];
-        if (filtroAtivo === "disponiveis") dados = dados.filter(c => !getIdResponsavel(c) && c.status === "Aberto");
+        if (filtroAtivo === "disponiveis") dados = dados.filter(c => !getIdResponsavel(c) && normalizarStatus(c.status) === "Aberto");
         else if (filtroAtivo === "meus") dados = dados.filter(c => getIdResponsavel(c) === usuarioLogado.id);
 
         dados.sort((a, b) => {
@@ -108,15 +144,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function renderizarKanban(lista) {
-        const colunas = { "Aberto": document.getElementById("cards-Aberto"), "Em Progresso": document.getElementById("cards-Progresso"), "Fechado": document.getElementById("cards-Fechado") };
+        const colunas = Object.fromEntries(
+            Object.entries(STATUS_CONFIG).map(([status, cfg]) => [status, document.getElementById(cfg.cards)])
+        );
         if (!colunas["Aberto"]) return;
 
         Object.values(colunas).forEach(el => { if (el) el.innerHTML = ""; });
-        const contadores = { "Aberto": 0, "Em Progresso": 0, "Fechado": 0 };
+        const contadores = { "Aberto": 0, "Em Atendimento": 0, "Pausado": 0, "Concluído": 0 };
 
         lista.forEach(c => {
-            if (!colunas[c.status]) return;
-            contadores[c.status]++;
+            const status = normalizarStatus(c.status);
+            if (!colunas[status]) return;
+            contadores[status]++;
 
             const card = document.createElement("div");
             card.className = "kanban-card";
@@ -128,6 +167,11 @@ document.addEventListener("DOMContentLoaded", () => {
             const dataStr = c.data_criacao ? new Date(c.data_criacao).toLocaleDateString('pt-BR') : '-';
             const idResp = getIdResponsavel(c);
             const respTxt = idResp === usuarioLogado.id ? "Comigo" : (c.usuario_responsavel?.nome || (idResp ? `Técnico #${idResp}` : "Aberto (Nenhum)"));
+            const sla = c.sla || {};
+            const slaEstado = sla.estado || "no_prazo";
+            const slaTexto = sla.estado === "concluido"
+                ? `SLA ${sla.percentual || 0}%`
+                : `${sla.horas_decorridas || 0}h/${sla.prazo_horas || "-"}h`;
 
             card.innerHTML = `
                 <div class="card-body-click">
@@ -141,16 +185,20 @@ document.addEventListener("DOMContentLoaded", () => {
                     <span><i class="fa-solid fa-user"></i> ${respTxt}</span>
                     <span><i class="fa-solid fa-calendar"></i> ${dataStr}</span>
                 </div>
+                <div class="card-footer">
+                    <span class="sla-pill sla-${slaEstado}">${slaTexto}</span>
+                    <span>${status}</span>
+                </div>
             `;
 
             card.addEventListener("click", () => {
                 if (!card.classList.contains("dragging")) abrirPainelAcoes(c.id);
             });
-            colunas[c.status].appendChild(card);
+            colunas[status].appendChild(card);
         });
 
         Object.keys(contadores).forEach(st => {
-            const el = document.getElementById(`count-${st === "Em Progresso" ? "Progresso" : st}`);
+            const el = document.getElementById(STATUS_CONFIG[st].count);
             if (el) el.textContent = contadores[st];
         });
     }
@@ -167,9 +215,11 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("modalSolicitante").textContent = chamadoSelecionado.usuario_solicitante?.nome || `ID ${chamadoSelecionado.usuario_solicitante_id || '-'}`;
             document.getElementById("modalSetorOrigem").textContent = chamadoSelecionado.setor_solicitante ? `${chamadoSelecionado.setor_solicitante.sigla} - ${chamadoSelecionado.setor_solicitante.nome}` : "Não informado";
             document.getElementById("modalResponsavel").textContent = chamadoSelecionado.usuario_responsavel?.nome || "Disponível para a equipe (Nenhum)";
-            document.getElementById("modalStatusAtual").textContent = chamadoSelecionado.status || '-';
+            document.getElementById("modalStatusAtual").textContent = normalizarStatus(chamadoSelecionado.status);
             document.getElementById("modalDataCriacao").textContent = chamadoSelecionado.data_criacao ? new Date(chamadoSelecionado.data_criacao).toLocaleString('pt-BR') : '-';
             document.getElementById("modalDataAtualizacao").textContent = chamadoSelecionado.data_atualizacao ? new Date(chamadoSelecionado.data_atualizacao).toLocaleString('pt-BR') : 'Sem modificações';
+            const sla = chamadoSelecionado.sla || {};
+            document.getElementById("modalSla").textContent = `${sla.horas_decorridas || 0}h de ${sla.prazo_horas || "-"}h (${sla.percentual || 0}%)`;
 
             const btn = document.getElementById("btnAtribuir");
             if (btn) {
@@ -178,7 +228,70 @@ document.addEventListener("DOMContentLoaded", () => {
                 btn.className = `btn-action ${ehMeu ? 'btn-danger' : 'btn-primary'}`;
             }
             if (modal) modal.style.display = "block";
+            renderizarTemposSetor(chamadoSelecionado.tempos_por_setor || []);
+            await carregarHistorico(id);
         } catch (e) { console.error(e); }
+    }
+
+    function formatarHoras(valor) {
+        if (valor === null || valor === undefined) return "-";
+        return `${Number(valor).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}h`;
+    }
+
+    function renderizarTemposSetor(tempos) {
+        const lista = document.getElementById("listaTemposSetor");
+        if (!lista) return;
+        if (!tempos.length) {
+            lista.innerHTML = '<div class="sector-timer-item">Nenhum tempo registrado ainda.</div>';
+            return;
+        }
+
+        lista.innerHTML = "";
+        tempos.forEach(item => {
+            const div = document.createElement("div");
+            div.className = "sector-timer-item";
+            const setor = item.setor || {};
+            const situacao = item.resolvido ? "Resolvido neste setor" : (item.transferido ? "Transferido" : "Em andamento");
+            div.innerHTML = `
+                <strong>${setor.sigla || "-"} - ${setor.nome || "Setor"} • ${situacao}</strong>
+                <div class="timer-metrics">
+                    <div class="timer-metric"><span>Resposta</span><b>${formatarHoras(item.tempo_resposta_horas)}</b></div>
+                    <div class="timer-metric"><span>Resolução</span><b>${formatarHoras(item.tempo_resolucao_horas)}</b></div>
+                    <div class="timer-metric"><span>Total</span><b>${formatarHoras(item.tempo_total_horas)}</b></div>
+                </div>
+            `;
+            lista.appendChild(div);
+        });
+    }
+
+    async function carregarHistorico(id) {
+        const lista = document.getElementById("listaHistorico");
+        if (!lista) return;
+        lista.innerHTML = '<div class="history-item">Carregando histórico...</div>';
+        try {
+            const res = await fetch(`${API_URL}/chamados/${id}/historico`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error("Erro ao carregar histórico");
+            const historico = await res.json();
+            if (!historico.length) {
+                lista.innerHTML = '<div class="history-item">Nenhum registro ainda.</div>';
+                return;
+            }
+            lista.innerHTML = "";
+            historico.forEach(item => {
+                const div = document.createElement("div");
+                div.className = "history-item";
+                const data = item.data_criacao ? new Date(item.data_criacao).toLocaleString("pt-BR") : "-";
+                const detalhe = item.tipo === "Nota"
+                    ? item.comentario
+                    : `${item.valor_anterior || item.setor_origem?.nome || "-"} -> ${item.valor_novo || item.setor_destino?.nome || "-"}`;
+                div.innerHTML = `<strong>${item.tipo} • ${item.autor?.nome || "Equipe"} • ${data}</strong><span>${detalhe || ""}</span>`;
+                lista.appendChild(div);
+            });
+        } catch (e) {
+            lista.innerHTML = '<div class="history-item">Não foi possível carregar o histórico.</div>';
+        }
     }
 
     document.getElementById("btnAtribuir")?.replaceWith(document.getElementById("btnAtribuir").cloneNode(true));
@@ -197,16 +310,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
                 body: JSON.stringify({ 
                     usuario_responsavel_id: ehMeu ? null : usuarioLogado.id, 
-                    status: ehMeu ? "Aberto" : "Em Progresso", 
+                    status: ehMeu ? "Aberto" : "Em Atendimento",
                     justificativa: ehMeu ? "Liberando chamado do técnico." : "Assumindo chamado pendente." 
                 })
             });
-            if (res.ok) { 
-                if (modal) modal.style.display = "none"; 
-                buscarFilaDoSetor(); 
+            if (res.ok) {
+                if (modal) modal.style.display = "none";
+                buscarFilaDoSetor();
             } else {
                 const err = await res.json();
-                alert(`Erro na requisição: ${err.detail || "Não autorizado"}`);
+                mostrarMensagemModal(err.detail || "Não autorizado", "erro");
             }
         } catch (e) { console.error(e); }
     });
@@ -243,8 +356,37 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (modal) modal.style.display = "none";
                 buscarFilaDoSetor();
                 document.getElementById("txtJustificativaTransferencia").value = "";
+            } else {
+                mostrarMensagemModal((await res.json()).detail || "Erro ao transferir", "erro");
             }
         } catch (e) { console.error(e); }
+    });
+
+    document.getElementById("btnSalvarNota")?.addEventListener("click", async () => {
+        if (!chamadoSelecionado) return;
+        const campo = document.getElementById("txtNotaInterna");
+        const comentario = campo.value.trim();
+        if (!comentario) {
+            mostrarMensagemModal("Digite a nota interna antes de salvar.", "erro");
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_URL}/chamados/${chamadoSelecionado.id}/notas`, {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ comentario })
+            });
+            if (res.ok) {
+                campo.value = "";
+                mostrarMensagemModal("Nota interna registrada.", "sucesso");
+                carregarHistorico(chamadoSelecionado.id);
+            } else {
+                mostrarMensagemModal((await res.json()).detail || "Erro ao salvar nota", "erro");
+            }
+        } catch (e) {
+            mostrarMensagemModal("Erro ao salvar nota interna.", "erro");
+        }
     });
 
     document.querySelectorAll(".tab-btn").forEach(btn => {

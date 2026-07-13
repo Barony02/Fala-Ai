@@ -3,9 +3,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config.database import engine, Base
 from app.routes.routes import router
 from app.routes.chamados import router as chamados_router
+from sqlalchemy import text
 
 # Cria as tabelas do banco de dados automaticamente se não existirem
 Base.metadata.create_all(bind=engine)
+
+
+def ajustar_schema_legado():
+    if engine.dialect.name != "mysql":
+        return
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE chamados MODIFY status VARCHAR(30) NOT NULL DEFAULT 'Aberto'"))
+
+
+ajustar_schema_legado()
 
 app = FastAPI(title="Sistema de Chamados - Câmara de Mariana")
 
