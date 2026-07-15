@@ -67,6 +67,11 @@ email: admin@admin
 senha: 123
 ```
 
+Observação:
+```text
+No primeiro build, é importante esperar a criação completa do conteiner do banco de dados, vc pode acompanhar ela por meio do make logs, quando tudo estiver ok aparecerá uma mensagem vinda do backend informando que você pode usar Crtl + C e sair do logs, e consequentemente acessar a aplicação
+```
+
 Comandos úteis:
 
 ```bash
