@@ -30,10 +30,10 @@ O sistema proposto consiste em uma plataforma de comunicação interna projetada
 *   Gestores de TI e Administradores institucionais.
 
 ### Tecnologias Previstas
-*   **Frontend:** JavaScript.
-*   **Backend:** Python.
+*   **Frontend:** JavaScript, HTML e CSS.
+*   **Backend:** Python - Utilizando a FastAPI.
 *   **Banco de Dados:** MySQL.
-*   **Ambiente:** Ambientes baseados em Linux para desenvolvimento e hospedagem.
+*   **Ambiente:** Ambientes baseados em Linux para desenvolvimento e hospedagem e utilização de Docker para criação dos conteiners .
 
 ### Lista de Integrantes
 *   Gabriel Barony

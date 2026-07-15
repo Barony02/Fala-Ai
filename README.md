@@ -1,4 +1,4 @@
-# Sistema de Comunicação Interna – Câmara de Mariana
+# Sistema de Comunicação Interna – Câmara de Mariana - Fala Aí
 
 ## Ideia Geral do Projeto
 
@@ -38,6 +38,13 @@ O foco é melhorar a eficiência da comunicação interna e permitir uma gestão
 
 https://github.com/users/Barony02/projects/6/views/1
 
+---
+## Tecnologias Utilizadas
+
+*   **Frontend:** JavaScript, HTML e CSS.
+*   **Backend:** Python - Utilizando a FastAPI.
+*   **Banco de Dados:** MySQL.
+*   **Ambiente:** Ambientes baseados em Linux para desenvolvimento e hospedagem e utilização de Docker para criação dos conteiners .
 ---
 
 ## Execução local
