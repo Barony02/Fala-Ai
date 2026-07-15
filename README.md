@@ -54,6 +54,12 @@ Depois acesse:
 http://localhost:8000
 ```
 
+Credenciais de Acesso
+```text
+email: admin@admin
+senha: 123
+```
+
 Comandos úteis:
 
 ```bash
@@ -69,4 +75,9 @@ Para agendar backup diário local às 18h:
 
 ```bash
 bash scripts/install_backup_cron.sh
+```
+
+A documentação do backend se encontra em:
+```text
+http://localhost:8000/docs
 ```
